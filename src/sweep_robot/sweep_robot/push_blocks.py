@@ -1,0 +1,675 @@
+"""从蓝区墙边沿 +y 把对齐的那一块推进对方那一排，再转用挡板沿 +x 推到侧墙。
+
+只推出发时对准的那一块，推到 y 大约 0.05 就停，不沿 +y 顶到北墙。
+倒车前先确认轮子正后方没有块。转向在南侧空地原地完成，之后只用车头挡板沿 +x 推。
+前进方向上出现比物块大、又不是红块和色标的物体时先停 2 秒。仿真里不放对手。
+"""
+
+import math
+import os
+import termios
+import threading
+import tty
+from typing import List, Optional, Sequence, Tuple
+
+import rclpy
+from geometry_msgs.msg import Pose2D, Twist
+from rclpy.node import Node
+from std_msgs.msg import Float32MultiArray
+
+Point = Tuple[float, float]
+Pose = Tuple[float, float, float]
+
+WALL_Y = 0.50
+SIDE_X = 0.50
+ROW_Y = 0.05
+OWN_Y = 0.02
+OPEN_Y = -0.08
+OWN_GAP = 0.04
+OWN_SPAN = 0.10
+PUSH_SPEED = 0.38
+# 车体中心超过这里，挡板前的块已经进了对方半区，交给后面的横推。
+CROSS_Y = 0.16
+# 倒车时轮子左右大约各 7.5cm，这个宽度里有块就不要退。
+WHEEL_HALF = 0.075
+# 转向前先离开两排。原地转外沿约 9cm，中心放在 -0.46 才不会扫到西墙。
+TURN_X = -0.46
+TURN_Y = -0.30
+
+
+def wrap_angle(angle: float) -> float:
+    return math.atan2(math.sin(angle), math.cos(angle))
+
+
+def world_to_body(vx_w: float, vy_w: float, yaw: float) -> Tuple[float, float]:
+    c = math.cos(yaw)
+    s = math.sin(yaw)
+    return c * vx_w + s * vy_w, -s * vx_w + c * vy_w
+
+
+def mean_x(group: Sequence[Point]) -> float:
+    return sum(block[0] for block in group) / len(group)
+
+
+def cluster_by_gap(blocks: Sequence[Point], gap: float) -> List[List[Point]]:
+    """相距 gap 以内的块合成一堆，叠在一起的也算。按堆中心的 x 排序。"""
+    points = list(blocks)
+    parent = list(range(len(points)))
+
+    def find(index: int) -> int:
+        while parent[index] != index:
+            parent[index] = parent[parent[index]]
+            index = parent[index]
+        return index
+
+    for i, left in enumerate(points):
+        for j in range(i + 1, len(points)):
+            right = points[j]
+            if math.hypot(left[0] - right[0], left[1] - right[1]) <= gap:
+                parent[find(i)] = find(j)
+    buckets: dict = {}
+    for index, block in enumerate(points):
+        buckets.setdefault(find(index), []).append(block)
+    groups = list(buckets.values())
+    groups.sort(key=mean_x)
+    return groups
+
+
+def cluster_by_span(blocks: Sequence[Point], span: float) -> List[List[Point]]:
+    """按 x 从西向东装，每堆跨度不超过挡板宽度，一铲能推完。"""
+    ordered = sorted(blocks, key=lambda block: block[0])
+    groups: List[List[Point]] = []
+    current: List[Point] = []
+    for block in ordered:
+        if current and block[0] - current[0][0] > span:
+            groups.append(current)
+            current = []
+        current.append(block)
+    if current:
+        groups.append(current)
+    return groups
+
+
+class PushBlocks(Node):
+    def __init__(self) -> None:
+        super().__init__("push_blocks")
+        self.declare_parameter("vmax", 0.35)
+        self.declare_parameter("wmax", 1.5)
+        self.vmax = float(self.get_parameter("vmax").value)
+        self.wmax = float(self.get_parameter("wmax").value)
+
+        self.blocks: List[Point] = []
+        self.obstacles: List[Point] = []
+        self.pose: Optional[Pose] = None
+        self.blocks_time = 0.0
+        self.pose_time = 0.0
+        self.last_cmd = (0.0, 0.0, 0.0)
+        self.seen_stamp = -1.0
+        self.started = False
+        self.declare_parameter("autostart", False)
+        autostart = self.get_parameter("autostart").value
+        if isinstance(autostart, str):
+            autostart = autostart.lower() in ("1", "true", "yes")
+        if autostart:
+            self.started = True
+            self.get_logger().info("已自动开始推块")
+        else:
+            threading.Thread(target=self._wait_space, daemon=True).start()
+            self.get_logger().info("车已停住。在这个终端按空格，开始推块")
+
+        self.phase = "deliver"
+        self.mode = "push"
+        self.end_x: Optional[float] = None
+        self.target_x: Optional[float] = None
+        self.skipped: List[float] = []
+        self.wait_until = 0.0
+        self.wait_obs: Optional[Point] = None
+        self.probing = False
+        self.probe_until = 0.0
+        self.probe_xy: Optional[Point] = None
+        self.passed_wait = False
+        self.sweep_returns = 0
+        self.second_pass = False
+        self.push_since = 0.0
+        self.pack_since = 0.0
+        self.lane_y: Optional[float] = None
+
+        self.create_subscription(Float32MultiArray, "/perception/blocks", self._on_blocks, 10)
+        self.create_subscription(Float32MultiArray, "/perception/obstacles", self._on_obstacles, 10)
+        self.create_subscription(Pose2D, "/perception/robot_pose", self._on_pose, 10)
+        self.pub = self.create_publisher(Twist, "/cmd_vel", 10)
+        self.create_timer(0.05, self._tick)
+
+    def _wait_space(self) -> None:
+        try:
+            fd = os.open("/dev/tty", os.O_RDONLY)
+        except OSError as exc:
+            self.get_logger().error(f"读不到启动终端的键盘: {exc}")
+            return
+        old = termios.tcgetattr(fd)
+        try:
+            tty.setcbreak(fd)
+            while rclpy.ok() and not self.started:
+                key = os.read(fd, 1)
+                if key == b" ":
+                    self.started = True
+                    self.get_logger().info("已按空格，开始推块")
+        finally:
+            termios.tcsetattr(fd, termios.TCSADRAIN, old)
+            os.close(fd)
+
+    def _now(self) -> float:
+        return self.get_clock().now().nanoseconds * 1e-9
+
+    def _on_blocks(self, msg: Float32MultiArray) -> None:
+        data = list(msg.data)
+        self.blocks = [(data[i], data[i + 1]) for i in range(0, len(data) - 1, 2)]
+        self.blocks_time = self._now()
+
+    def _on_obstacles(self, msg: Float32MultiArray) -> None:
+        data = list(msg.data)
+        self.obstacles = [(data[i], data[i + 1]) for i in range(0, len(data) - 1, 2)]
+
+    def _on_pose(self, msg: Pose2D) -> None:
+        now = self._now()
+        fresh = (msg.x, msg.y, msg.theta)
+        if self.pose is None:
+            self.pose = fresh
+        else:
+            yaw = self.pose[2] + 0.8 * wrap_angle(fresh[2] - self.pose[2])
+            self.pose = (
+                0.75 * fresh[0] + 0.25 * self.pose[0],
+                0.75 * fresh[1] + 0.25 * self.pose[1],
+                yaw,
+            )
+        self.pose_time = now
+
+    def _publish(self, vx: float, vy: float, wz: float) -> None:
+        vx = float(max(-self.vmax, min(self.vmax, vx)))
+        vy = float(max(-self.vmax, min(self.vmax, vy)))
+        wz = float(max(-self.wmax, min(self.wmax, wz)))
+        self.last_cmd = (vx, vy, wz)
+        self._emit(vx, vy, wz)
+
+    def _emit(self, vx: float, vy: float, wz: float) -> None:
+        cmd = Twist()
+        cmd.linear.x = float(vx)
+        cmd.linear.y = float(vy)
+        cmd.angular.z = float(wz)
+        self.pub.publish(cmd)
+
+    def _drive(self, vx_w: float, vy_w: float, yaw: float, goal: float = math.pi / 2, hold: bool = True) -> None:
+        """世界坐标速度。hold 时车头没对准就只原地转；转弯贴着块走时不能这样。"""
+        err = wrap_angle(goal - yaw)
+        if hold and abs(err) > 0.35:
+            vx_w = 0.0
+            vy_w = 0.0
+        vx, vy = world_to_body(vx_w, vy_w, yaw)
+        self._publish(vx, vy, 2.8 * err)
+
+    def _groups(self) -> List[List[Point]]:
+        if self.phase != "own":
+            return []
+        pool = [
+            block
+            for block in self.blocks
+            if block[1] < OWN_Y and (self.second_pass or block[1] > -0.25)
+        ]
+        groups = cluster_by_span(pool, OWN_SPAN)
+        kept = []
+        for group in groups:
+            center = mean_x(group)
+            if any(abs(center - banned) < 0.05 for banned in self.skipped):
+                continue
+            kept.append(group)
+        return kept
+
+    def _approach_y(self, group: Sequence[Point]) -> float:
+        # 靠蓝区墙一侧的空区。-0.18 附近会有被碰下来的块，横移会顶住。
+        return -0.40
+
+    def _row_blocks(self) -> List[Point]:
+        """还在对方那一排、没到 +x 侧墙的块。"""
+        return [block for block in self.blocks if 0.0 < block[1] < 0.20 and block[0] < SIDE_X]
+
+    def _row_y(self) -> float:
+        row = self._row_blocks()
+        if row:
+            ys = [block[1] for block in row]
+            if max(ys) - min(ys) <= 0.09:
+                return (min(ys) + max(ys)) / 2.0
+            ordered = sorted(ys)
+            return ordered[len(ordered) // 2]
+        return ROW_Y
+
+    def _motion(self, x: float, y: float, group: Optional[Sequence[Point]]) -> Tuple[float, float]:
+        """当前打算走的世界方向，用来判断前方有没有挡路。"""
+        if self.phase == "done":
+            return 0.0, 0.0
+        if self.phase == "deliver":
+            return 0.0, 1.0
+        if self.phase == "retreat":
+            return 0.0, -1.0
+        if self.phase == "spin":
+            return 0.0, 0.0
+        if self.phase == "recover":
+            return 0.0, -1.0
+        return 1.0, 0.0
+
+    def _ahead(self, x: float, y: float, dx: float, dy: float) -> Optional[Point]:
+        if abs(dx) + abs(dy) < 0.5:
+            return None
+        found = None
+        best = 1.0
+        for ox, oy in self.obstacles:
+            along = (ox - x) * dx + (oy - y) * dy
+            cross = abs(-(oy - y) * dx + (ox - x) * dy)
+            if 0.03 < along < 0.18 and cross < 0.09 and along < best:
+                best = along
+                found = (ox, oy)
+        return found
+
+    def _obs_shift(self, old: Point) -> float:
+        if not self.obstacles:
+            return 1.0
+        return min(math.hypot(ox - old[0], oy - old[1]) for ox, oy in self.obstacles)
+
+    def _skip(self) -> None:
+        if self.phase == "end":
+            if self.end_x is not None:
+                self.skipped.append(self.end_x)
+            self._begin_turn()
+        elif self.phase in ("turn", "sweep"):
+            self.phase = "own"
+        elif self.target_x is not None:
+            self.skipped.append(self.target_x)
+        self.target_x = None
+        if self.phase != "turn":
+            self.mode = "approach"
+        self.passed_wait = False
+        self.probing = False
+        self.probe_xy = None
+
+    def _tick(self) -> None:
+        now = self._now()
+        if not self.started:
+            self._emit(0.0, 0.0, 0.0)
+            return
+        if self.pose is None or now - self.pose_time > 0.4 or now - self.blocks_time > 1.5:
+            self.last_cmd = (0.0, 0.0, 0.0)
+            self._emit(0.0, 0.0, 0.0)
+            return
+        stamp = min(self.pose_time, self.blocks_time)
+        if stamp == self.seen_stamp:
+            self._emit(*self.last_cmd)
+            return
+        self.seen_stamp = stamp
+
+        x, y, yaw = self.pose
+        if self.wait_until and now < self.wait_until:
+            self._emit(0.0, 0.0, 0.0)
+            return
+
+        self._advance_phase()
+        group = None
+        dx, dy = self._motion(x, y, group)
+
+        if self.wait_obs is not None and self.wait_until and now >= self.wait_until:
+            shift = self._obs_shift(self.wait_obs)
+            ahead = self._ahead(x, y, dx, dy)
+            self.wait_obs = None
+            self.wait_until = 0.0
+            self.passed_wait = True
+            if shift < 0.03 or ahead is not None:
+                self.probing = True
+                self.probe_xy = (x, y)
+                self.probe_until = now + 1.5
+                self.get_logger().info("挡路的物体几乎没动，按原路线继续")
+            else:
+                self.probing = False
+                self.passed_wait = False
+
+        ahead = self._ahead(x, y, dx, dy)
+        if ahead is not None and not self.passed_wait and not self.probing:
+            self.wait_until = now + 2.0
+            self.wait_obs = ahead
+            self._emit(0.0, 0.0, 0.0)
+            self.get_logger().info("前方有物体挡路，先停 2 秒")
+            return
+
+        if self.probing and self.probe_xy is not None and now >= self.probe_until:
+            moved = math.hypot(x - self.probe_xy[0], y - self.probe_xy[1])
+            self.probing = False
+            if moved < 0.02 and ahead is not None:
+                self.get_logger().info("还是过不去，绕到下一堆")
+                self._skip()
+                self._advance_phase()
+                group = self._select_group()
+            else:
+                self.passed_wait = ahead is not None
+
+        self._act(x, y, yaw, group)
+
+    def _advance_phase(self) -> None:
+        if self.phase == "deliver" and self.end_x is None and self.pose is not None and self.pose[1] < -0.40:
+            self.end_x = self.pose[0]
+        if self.phase == "deliver" and self._block_on_row():
+            self.phase = "retreat"
+            self.get_logger().info("这块已进入对方那一排，退到空地再转向")
+
+    def _block_on_row(self) -> bool:
+        if self.pose is None or self.end_x is None:
+            return False
+        y = self.pose[1]
+        near = [block for block in self.blocks if abs(block[0] - self.end_x) < 0.08]
+        still_south = [block for block in near if block[1] < 0.03]
+        on_row = [block for block in near if 0.04 <= block[1] <= 0.09]
+        # 看到块进了这一排就停。车心再往北会把对方那一排顶飞。
+        if on_row and not still_south:
+            return True
+        return y > -0.035
+
+    def _path_clear(self, x: float, y: float, dx: float, dy: float, reach: float = 0.16) -> bool:
+        for bx, by in self.blocks:
+            along = (bx - x) * dx + (by - y) * dy
+            cross = abs(-(by - y) * dx + (bx - x) * dy)
+            if 0.025 < along < reach and cross < 0.055:
+                return False
+        return True
+
+    def _begin_turn(self) -> None:
+        self.phase = "turn"
+        self.mode = "turn"
+
+    def _begin_own(self) -> None:
+        self.phase = "own"
+        self.skipped.clear()
+        self.target_x = None
+        self.mode = "approach"
+        self.passed_wait = False
+
+    def _sweep_done(self, robot_x: float) -> bool:
+        band = [block for block in self.blocks if 0.0 < block[1] < 0.20 and block[0] < SIDE_X]
+        if not band:
+            return True
+        # 车到侧墙但这一排还有块，再从西侧推一次。两次之后交给己方。
+        if robot_x >= SIDE_X and self.mode == "push":
+            self.sweep_returns += 1
+            self.mode = "lineup"
+            return self.sweep_returns >= 2
+        return False
+
+    def _select_group(self) -> Optional[List[Point]]:
+        groups = self._groups()
+        if not groups:
+            self.target_x = None
+            return None
+        if self.target_x is not None:
+            for group in groups:
+                if abs(mean_x(group) - self.target_x) < 0.10:
+                    self.target_x = mean_x(group)
+                    return group
+        group = groups[0]
+        new_x = mean_x(group)
+        if self.target_x is None or abs(new_x - self.target_x) > 0.06:
+            self.mode = "approach"
+            self.passed_wait = False
+        self.target_x = new_x
+        return group
+
+    def _rear_blocked(self, x: float, y: float) -> bool:
+        """车头朝 +y 时，正后方轮距里有没有块。有的话倒车会把它卷到轮下。"""
+        for bx, by in self.blocks:
+            if y - 0.18 < by < y - 0.02 and abs(bx - x) < WHEEL_HALF:
+                return True
+        return False
+
+    def _evade_left(self, x: float, y: float) -> float:
+        """车头朝 +y 时，车体向左是世界 -x。选块更少的一侧让开。"""
+        def count(x0: float, x1: float) -> int:
+            lo, hi = min(x0, x1), max(x0, x1)
+            return sum(1 for bx, by in self.blocks if lo <= bx <= hi and y - 0.18 < by < y + 0.06)
+
+        west = count(x - 0.22, x - WHEEL_HALF)
+        east = count(x + WHEEL_HALF, x + 0.22)
+        if west <= east and x > -0.50:
+            return 0.24
+        return -0.24
+
+    def _safe_back(self, x: float, y: float, yaw: float) -> None:
+        if self._rear_blocked(x, y):
+            self._north(yaw, 0.0, self._evade_left(x, y))
+            return
+        self._north(yaw, -0.22, 0.0)
+
+    def _column_delivered(self, goal_x: float, robot_y: float) -> bool:
+        if robot_y > 0.24:
+            return True
+        if robot_y <= CROSS_Y:
+            return False
+        near = [block for block in self.blocks if abs(block[0] - goal_x) < 0.07 and block[1] < 0.28]
+        return not near or all(block[1] > 0.06 for block in near)
+
+    def _sweep_row(self) -> List[Point]:
+        """已经在对方半区、还没靠到 +x 墙的块。"""
+        return [block for block in self.blocks if -0.02 < block[1] < 0.28 and block[0] < 0.48]
+
+    def _act(self, x: float, y: float, yaw: float, group: Optional[Sequence[Point]]) -> None:
+        self.get_logger().info(
+            f"{self.phase} 车 ({x:.2f},{y:.2f},{yaw:.2f})",
+            throttle_duration_sec=1.0,
+        )
+        if self.phase == "done":
+            self._publish(0.0, 0.0, 0.0)
+            self.get_logger().info("这一排已经靠到侧墙", throttle_duration_sec=2.0)
+            return
+        if self.phase == "deliver":
+            self._deliver(x, y, yaw)
+            return
+        if self.phase == "retreat":
+            self._retreat(x, y, yaw)
+            return
+        if self.phase == "spin":
+            self._spin(x, y, yaw)
+            return
+        if self.phase == "lineup":
+            self._lineup(x, y, yaw)
+            return
+        if self.phase == "recover":
+            self._recover(x, y, yaw)
+            return
+        if self.phase == "rake":
+            self._rake(x, y, yaw)
+            return
+        self._publish(0.0, 0.0, 0.0)
+
+    def _deliver(self, x: float, y: float, yaw: float) -> None:
+        """车头朝 +y，挡板把对准的那一块直推到对方那一排。"""
+        goal = self.end_x if self.end_x is not None else x
+        lateral = 0.0
+        if y < -0.16 and abs(x - goal) > 0.015:
+            lateral = max(-0.05, min(0.05, 1.2 * (x - goal)))
+        speed = 0.14 if y > -0.18 else PUSH_SPEED
+        self._shove(yaw, math.pi / 2, lateral, speed)
+
+    def _retreat(self, x: float, y: float, yaw: float) -> None:
+        """退到南侧空地再转向。只在后方轮距是空的时候倒车，不往西墙里挤。"""
+        if y < -0.34 and -0.50 <= x <= -0.42:
+            self.phase = "spin"
+            self._publish(0.0, 0.0, 0.0)
+            return
+        if y < -0.34 and x < -0.50:
+            self._north(yaw, 0.0, -0.16)
+            return
+        if y < -0.34:
+            if self._path_clear(x, y, -1.0, 0.0):
+                self._north(yaw, 0.0, 0.28)
+            else:
+                self._publish(0.0, 0.0, 0.0)
+            return
+        if self._path_clear(x, y, 0.0, -1.0):
+            self._north(yaw, -0.28, 0.0)
+            return
+        if self._path_clear(x, y, -1.0, 0.0):
+            self._north(yaw, 0.0, 0.22)
+            return
+        self._publish(0.0, 0.0, 0.0)
+
+    def _spin(self, x: float, y: float, yaw: float) -> None:
+        if x > -0.40 or y > -0.28:
+            self.phase = "retreat"
+            return
+        if x < -0.50:
+            self._north(yaw, 0.0, -0.16)
+            return
+        err = wrap_angle(0.0 - yaw)
+        if abs(err) < 0.12:
+            self.lane_y = 0.062
+            self.phase = "lineup"
+            self._publish(0.0, 0.0, 0.0)
+            self.get_logger().info("车头已朝 +x，对齐对方那一排")
+            return
+        self._publish(0.0, 0.0, max(-1.3, min(1.3, 2.8 * err)))
+
+    def _row_y(self) -> float:
+        row = self._row_blocks()
+        if not row:
+            return ROW_Y
+        ys = [block[1] for block in row]
+        if max(ys) - min(ys) <= 0.09:
+            return (min(ys) + max(ys)) / 2.0
+        ordered = sorted(ys)
+        return ordered[len(ordered) // 2]
+
+    def _clear_x(self) -> float:
+        """挡板前缘要留在最西边那块的西侧，北上时才不会用铲的侧面碰到它。"""
+        row = self._row_blocks()
+        left = min((block[0] for block in row), default=-0.40)
+        return max(-0.545, min(-0.40, left - 0.12))
+
+    def _face_east(self, yaw: float) -> Optional[float]:
+        err = wrap_angle(0.0 - yaw)
+        if abs(err) > 0.18:
+            self._publish(0.0, 0.0, max(-1.2, min(1.2, 2.6 * err)))
+            return None
+        return err
+
+    def _lineup(self, x: float, y: float, yaw: float) -> None:
+        """车头朝 +x。先在南侧空地让到这一排西侧，再北上，挡板正面贴上这一排。"""
+        err = self._face_east(yaw)
+        if err is None:
+            return
+        if self.lane_y is None:
+            self.lane_y = self._row_y()
+        lane = self.lane_y
+        clear_x = self._clear_x()
+        wz = max(-0.6, min(0.6, 1.8 * err))
+        if y > -0.28 and x > clear_x + 0.02:
+            if self._path_clear(x, y, 0.0, -1.0, reach=0.14):
+                self._publish(0.0, -0.24, wz)
+            else:
+                self._publish(0.0, 0.0, wz)
+            return
+        if abs(x - clear_x) > 0.025:
+            step = max(-0.22, min(0.22, 2.0 * (clear_x - x)))
+            if step < 0 and not self._path_clear(x, y, -1.0, 0.0):
+                self._publish(0.0, 0.0, wz)
+                return
+            self._publish(step, 0.0, wz)
+            return
+        if abs(y - lane) > 0.02:
+            step = max(-0.28, min(0.28, 2.4 * (lane - y)))
+            if step > 0 and x > clear_x + 0.03:
+                self._publish(0.0, 0.0, wz)
+                return
+            self._publish(0.0, step, wz)
+            return
+        self.phase = "rake"
+        self.get_logger().info(f"已对齐 y={lane:.2f}，沿 +x 推到侧墙")
+
+    def _recover(self, x: float, y: float, yaw: float) -> None:
+        """还有块留在西边。先退到南侧空地，再从西侧用挡板正面推一次。"""
+        err = self._face_east(yaw)
+        if err is None:
+            return
+        wz = max(-0.6, min(0.6, 1.8 * err))
+        if y > -0.34:
+            if self._path_clear(x, y, 0.0, -1.0, reach=0.16):
+                self._publish(0.0, max(-0.28, min(-0.12, 2.0 * (-0.40 - y))), wz)
+            else:
+                self._publish(0.0, 0.0, wz)
+            return
+        self.phase = "lineup"
+        self._publish(0.0, 0.0, 0.0)
+
+    def _rake(self, x: float, y: float, yaw: float) -> None:
+        """铲面略朝东北。贴着还在铲前的那一排推，偏角让块往北滑，不滑回己方。"""
+        goal = 0.10
+        err = wrap_angle(goal - yaw)
+        wz = max(-1.4, min(1.4, 6.0 * err))
+        ahead = [
+            block
+            for block in self.blocks
+            if -0.02 < block[1] < 0.25 and x - 0.08 < block[0] < x + 0.04
+        ]
+        if ahead:
+            ys = sorted(block[1] for block in ahead)
+            target = ys[0] + 0.040
+            vy = max(-0.08, min(0.08, 2.0 * (target - y)))
+        else:
+            vy = 0.0
+        if abs(err) > 0.04:
+            now = self._now()
+            if abs(err) > 0.15 and x > 0.20 and self._path_clear(x, y, -1.0, 0.0, reach=0.10):
+                self._publish(-0.10, 0.0, 0.0)
+                return
+            if x > 0.45 and abs(err) < 0.15:
+                if self.push_since <= 0.0:
+                    self.push_since = now
+                elif now - self.push_since > 1.2:
+                    self.phase = "done"
+                    self._publish(0.0, 0.0, 0.0)
+                    self.get_logger().info("这一排已经靠到侧墙")
+                    return
+            else:
+                self.push_since = 0.0
+            self._publish(0.0, 0.0, wz)
+            return
+        self.push_since = 0.0
+        if x >= 0.48:
+            self.phase = "done"
+            self._publish(0.0, 0.0, 0.0)
+            self.get_logger().info("这一排已经靠到侧墙")
+            return
+        speed = 0.22 if x > 0.05 else 0.28
+        self._publish(speed, vy, wz)
+
+    def _north(self, yaw: float, forward: float, left: float) -> None:
+        """车头朝 +y 时的车体速度。航向差得多就只转，不倒车轧块。"""
+        err = wrap_angle(math.pi / 2 - yaw)
+        if abs(err) > 0.2:
+            self._publish(0.0, 0.0, max(-1.2, min(1.2, 2.4 * err)))
+            return
+        self._publish(forward, left, 1.2 * err)
+
+    def _shove(self, yaw: float, goal: float, lateral: float, speed: float) -> None:
+        """沿车头推。航向只做小修正。"""
+        err = wrap_angle(goal - yaw)
+        wz = 0.0 if abs(err) < 0.2 else max(-0.4, min(0.4, 1.2 * err))
+        lateral = max(-0.05, min(0.05, lateral))
+        self._publish(speed, lateral, wz)
+
+
+def main() -> None:
+    rclpy.init()
+    node = PushBlocks()
+    try:
+        rclpy.spin(node)
+    except KeyboardInterrupt:
+        pass
+    node.destroy_node()
+    rclpy.shutdown()
+
+
+if __name__ == "__main__":
+    main()

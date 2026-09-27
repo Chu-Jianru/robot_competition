@@ -1,0 +1,1453 @@
+<?xml version="1.0"?>
+<sdf version="1.6">
+  <world name="competition">
+
+    <scene>
+      <ambient>0.55 0.55 0.55 1</ambient>
+      <background>0.75 0.75 0.75 1</background>
+      <shadows>false</shadows>
+    </scene>
+
+    <light name="sun" type="directional">
+      <cast_shadows>true</cast_shadows>
+      <pose>0 0 10 0 0 0</pose>
+      <diffuse>0.8 0.8 0.8 1</diffuse>
+      <specular>0.2 0.2 0.2 1</specular>
+      <attenuation>
+        <range>1000</range>
+        <constant>0.9</constant>
+        <linear>0.01</linear>
+        <quadratic>0.001</quadratic>
+      </attenuation>
+      <direction>-0.5 0.1 -0.9</direction>
+    </light>
+
+    <model name="field">
+      <static>true</static>
+      <link name="field_link">
+
+        <visual name="blue">
+          <pose>0 -0.3 -0.005 0 0 0</pose>
+          <geometry>
+            <box><size>1.2 0.6 0.01</size></box>
+          </geometry>
+          <material>
+            <ambient>0.05 0.25 0.9 1</ambient>
+            <diffuse>0.05 0.25 0.9 1</diffuse>
+          </material>
+        </visual>
+
+        <visual name="yellow">
+          <pose>0 0.3 -0.005 0 0 0</pose>
+          <geometry>
+            <box><size>1.2 0.6 0.01</size></box>
+          </geometry>
+          <material>
+            <ambient>0.95 0.8 0.05 1</ambient>
+            <diffuse>0.95 0.8 0.05 1</diffuse>
+          </material>
+        </visual>
+
+        <collision name="floor_collision">
+          <pose>0 0 -0.005 0 0 0</pose>
+          <geometry>
+            <box><size>1.2 1.2 0.01</size></box>
+          </geometry>
+        </collision>
+
+        <collision name="wall_left">
+          <pose>-0.61 0 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>0.02 1.24 0.1</size></box>
+          </geometry>
+        </collision>
+        <visual name="wall_left_visual">
+          <pose>-0.61 0 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>0.02 1.24 0.1</size></box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.3 0.3 0.3 1</diffuse>
+          </material>
+        </visual>
+
+        <collision name="wall_right">
+          <pose>0.61 0 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>0.02 1.24 0.1</size></box>
+          </geometry>
+        </collision>
+        <visual name="wall_right_visual">
+          <pose>0.61 0 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>0.02 1.24 0.1</size></box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.3 0.3 0.3 1</diffuse>
+          </material>
+        </visual>
+
+        <collision name="wall_front">
+          <pose>0 0.61 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>1.24 0.02 0.1</size></box>
+          </geometry>
+        </collision>
+        <visual name="wall_front_visual">
+          <pose>0 0.61 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>1.24 0.02 0.1</size></box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.3 0.3 0.3 1</diffuse>
+          </material>
+        </visual>
+
+        <collision name="wall_back">
+          <pose>0 -0.61 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>1.24 0.02 0.1</size></box>
+          </geometry>
+        </collision>
+        <visual name="wall_back_visual">
+          <pose>0 -0.61 0.05 0 0 0</pose>
+          <geometry>
+            <box><size>1.24 0.02 0.1</size></box>
+          </geometry>
+          <material>
+            <ambient>0.3 0.3 0.3 1</ambient>
+            <diffuse>0.3 0.3 0.3 1</diffuse>
+          </material>
+        </visual>
+
+      </link>
+    </model>
+
+<model name="competition_robot">
+  <pose>-0.4158 -0.54 0 0 0 1.57079632679</pose>
+  <static>false</static>
+  <allow_auto_disable>false</allow_auto_disable>
+
+  <link name="base_link">
+    <pose>0 0 0.045 0 0 0</pose>
+
+    <inertial>
+      <mass>1.0</mass>
+      <inertia>
+        <ixx>0.00077083</ixx>
+        <iyy>0.00084375</iyy>
+        <izz>0.00127708</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <box>
+          <size>0.09 0.085 0.045</size>
+        </box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <box>
+          <size>0.09 0.085 0.045</size>
+        </box>
+      </geometry>
+
+      <material>
+        <ambient>0.1 0.55 0.2 1</ambient>
+        <diffuse>0.1 0.55 0.2 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <link name="front_left_wheel">
+    <pose>0.03 0.047 0.018 1.57079632679 0 0</pose>
+
+    <inertial>
+      <mass>0.08</mass>
+      <inertia>
+        <ixx>0.00000744</ixx>
+        <iyy>0.00000744</iyy>
+        <izz>0.00001296</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+            <slip1>1.0</slip1>
+            <slip2>1.0</slip2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <ambient>0.08 0.08 0.08 1</ambient>
+        <diffuse>0.08 0.08 0.08 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="front_left_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>front_left_wheel</child>
+  </joint>
+
+  <link name="front_right_wheel">
+    <pose>0.03 -0.047 0.018 1.57079632679 0 0</pose>
+
+    <inertial>
+      <mass>0.08</mass>
+      <inertia>
+        <ixx>0.00000744</ixx>
+        <iyy>0.00000744</iyy>
+        <izz>0.00001296</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+            <slip1>1.0</slip1>
+            <slip2>1.0</slip2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <ambient>0.08 0.08 0.08 1</ambient>
+        <diffuse>0.08 0.08 0.08 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="front_right_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>front_right_wheel</child>
+  </joint>
+
+  <link name="rear_left_wheel">
+    <pose>-0.03 0.047 0.018 1.57079632679 0 0</pose>
+
+    <inertial>
+      <mass>0.08</mass>
+      <inertia>
+        <ixx>0.00000744</ixx>
+        <iyy>0.00000744</iyy>
+        <izz>0.00001296</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+            <slip1>1.0</slip1>
+            <slip2>1.0</slip2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <ambient>0.08 0.08 0.08 1</ambient>
+        <diffuse>0.08 0.08 0.08 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="rear_left_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>rear_left_wheel</child>
+  </joint>
+
+  <link name="rear_right_wheel">
+    <pose>-0.03 -0.047 0.018 1.57079632679 0 0</pose>
+
+    <inertial>
+      <mass>0.08</mass>
+      <inertia>
+        <ixx>0.00000744</ixx>
+        <iyy>0.00000744</iyy>
+        <izz>0.00001296</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+            <slip1>1.0</slip1>
+            <slip2>1.0</slip2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <cylinder>
+          <radius>0.018</radius>
+          <length>0.012</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <ambient>0.08 0.08 0.08 1</ambient>
+        <diffuse>0.08 0.08 0.08 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="rear_right_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>rear_right_wheel</child>
+  </joint>
+
+  <link name="front_shovel">
+    <pose>0.056 0 0.02 0 0 0</pose>
+
+    <inertial>
+      <mass>0.15</mass>
+      <inertia>
+        <ixx>0.00017251</ixx>
+        <iyy>0.00001125</iyy>
+        <izz>0.00016936</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <box>
+          <size>0.018 0.115 0.024</size>
+        </box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.2</mu>
+            <mu2>0.2</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <box>
+          <size>0.018 0.115 0.024</size>
+        </box>
+      </geometry>
+
+      <material>
+        <ambient>0.2 0.2 0.2 1</ambient>
+        <diffuse>0.2 0.2 0.2 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="shovel_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>front_shovel</child>
+  </joint>
+
+  <link name="front_left_marker">
+    <pose>0.032 0.026 0.102 0 0 0</pose>
+
+    <inertial>
+      <mass>0.005</mass>
+      <inertia>
+        <ixx>0.00000017</ixx>
+        <iyy>0.00000017</iyy>
+        <izz>0.00000033</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+
+      <material>
+        <ambient>1 0 1 1</ambient>
+        <diffuse>1 0 1 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="front_left_marker_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>front_left_marker</child>
+  </joint>
+
+  <link name="front_right_marker">
+    <pose>0.032 -0.026 0.102 0 0 0</pose>
+
+    <inertial>
+      <mass>0.005</mass>
+      <inertia>
+        <ixx>0.00000017</ixx>
+        <iyy>0.00000017</iyy>
+        <izz>0.00000033</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+
+      <material>
+        <ambient>1 0 1 1</ambient>
+        <diffuse>1 0 1 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="front_right_marker_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>front_right_marker</child>
+  </joint>
+
+  <link name="rear_left_marker">
+    <pose>-0.032 0.026 0.102 0 0 0</pose>
+
+    <inertial>
+      <mass>0.005</mass>
+      <inertia>
+        <ixx>0.00000017</ixx>
+        <iyy>0.00000017</iyy>
+        <izz>0.00000033</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+
+      <material>
+        <ambient>0 1 1 1</ambient>
+        <diffuse>0 1 1 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="rear_left_marker_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>rear_left_marker</child>
+  </joint>
+
+  <link name="rear_right_marker">
+    <pose>-0.032 -0.026 0.102 0 0 0</pose>
+
+    <inertial>
+      <mass>0.005</mass>
+      <inertia>
+        <ixx>0.00000017</ixx>
+        <iyy>0.00000017</iyy>
+        <izz>0.00000033</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <box>
+          <size>0.02 0.02 0.004</size>
+        </box>
+      </geometry>
+
+      <material>
+        <ambient>0 1 1 1</ambient>
+        <diffuse>0 1 1 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="rear_right_marker_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>rear_right_marker</child>
+  </joint>
+
+  <link name="camera_mount">
+    <pose>0 0 0.085 0 0 0</pose>
+
+    <inertial>
+      <mass>0.05</mass>
+      <inertia>
+        <ixx>0.00000521</ixx>
+        <iyy>0.00000521</iyy>
+        <izz>0.00000521</izz>
+      </inertia>
+    </inertial>
+
+    <collision name="collision">
+      <geometry>
+        <box>
+          <size>0.025 0.025 0.025</size>
+        </box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode>
+            <mu>0.0</mu>
+            <mu2>0.0</mu2>
+          </ode>
+        </friction>
+      </surface>
+    </collision>
+
+    <visual name="visual">
+      <geometry>
+        <box>
+          <size>0.025 0.025 0.025</size>
+        </box>
+      </geometry>
+
+      <material>
+        <ambient>0.1 0.1 0.1 1</ambient>
+        <diffuse>0.1 0.1 0.1 1</diffuse>
+      </material>
+    </visual>
+  </link>
+
+  <joint name="camera_mount_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>camera_mount</child>
+  </joint>
+
+  <plugin name="omni_drive" filename="libgazebo_ros_planar_move.so">
+    <ros>
+      <remapping>cmd_vel:=cmd_vel</remapping>
+      <remapping>odom:=odom</remapping>
+    </ros>
+    <update_rate>50</update_rate>
+    <publish_rate>50</publish_rate>
+    <publish_odom>true</publish_odom>
+    <publish_odom_tf>true</publish_odom_tf>
+    <odometry_frame>odom</odometry_frame>
+    <robot_base_frame>base_link</robot_base_frame>
+  </plugin>
+
+</model>
+
+
+    <model name="block_00">
+      <pose>-0.4158 -0.0517 0.010 0 0 -0.1111</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_01">
+      <pose>-0.3194 -0.0451 0.010 0 0 -0.3396</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_02">
+      <pose>-0.2342 -0.0502 0.010 0 0 -0.3478</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_03">
+      <pose>-0.1347 -0.0511 0.010 0 0 0.1361</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_04">
+      <pose>-0.0339 -0.0519 0.010 0 0 0.0121</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_05">
+      <pose>0.0366 -0.0536 0.010 0 0 0.0173</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_06">
+      <pose>0.1283 -0.0517 0.010 0 0 -0.2362</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_07">
+      <pose>0.2269 -0.0544 0.010 0 0 0.3613</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_08">
+      <pose>0.3200 -0.0513 0.010 0 0 0.3371</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_09">
+      <pose>0.4146 -0.0462 0.010 0 0 -0.1506</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_10">
+      <pose>-0.4438 0.0457 0.010 0 0 -0.1496</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_11">
+      <pose>-0.3305 0.0452 0.010 0 0 -0.2751</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_12">
+      <pose>-0.2360 0.0503 0.010 0 0 0.3864</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_13">
+      <pose>-0.1568 0.0537 0.010 0 0 -0.3515</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_14">
+      <pose>-0.0357 0.0464 0.010 0 0 -0.2445</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_15">
+      <pose>0.0569 0.0470 0.010 0 0 -0.3816</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_16">
+      <pose>0.1495 0.0460 0.010 0 0 0.0380</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_17">
+      <pose>0.2340 0.0459 0.010 0 0 -0.1331</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_18">
+      <pose>0.3415 0.0484 0.010 0 0 -0.1928</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+    <model name="block_19">
+      <pose>0.4168 0.0537 0.010 0 0 -0.2288</pose>
+      <link name="link">
+        <inertial>
+          <mass>0.015</mass>
+          <inertia>
+            <ixx>1.00000000e-06</ixx>
+            <iyy>1.00000000e-06</iyy>
+            <izz>1.00000000e-06</izz>
+          </inertia>
+        </inertial>
+        <collision name="collision">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <surface>
+            <friction>
+              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+            </friction>
+            <contact>
+              <ode>
+                <kp>1000000</kp>
+                <kd>100</kd>
+                <max_vel>0.5</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
+        </collision>
+        <visual name="visual">
+          <geometry><box><size>0.02 0.02 0.02</size></box></geometry>
+          <material>
+            <ambient>0.95 0.05 0.05 1</ambient>
+            <diffuse>0.95 0.05 0.05 1</diffuse>
+          </material>
+        </visual>
+      </link>
+    </model>
+
+
+
+    <model name="overhead_camera">
+      <pose>0 0 2.55 0 1.570796 0</pose>
+      <static>true</static>
+      <link name="link">
+        <sensor type="camera" name="camera">
+          <update_rate>10</update_rate>
+          <visualize>false</visualize>
+          <camera>
+            <horizontal_fov>1.05</horizontal_fov>
+            <image>
+              <width>640</width>
+              <height>480</height>
+              <format>R8G8B8</format>
+            </image>
+            <clip>
+              <near>0.05</near>
+              <far>8</far>
+            </clip>
+            <noise>
+              <type>gaussian</type>
+              <mean>0.0</mean>
+              <stddev>0.004</stddev>
+            </noise>
+          </camera>
+          <plugin name="overhead_camera_controller" filename="libgazebo_ros_camera.so">
+            <ros>
+              <namespace>overhead</namespace>
+            </ros>
+            <camera_name>camera</camera_name>
+            <frame_name>overhead_camera_link</frame_name>
+          </plugin>
+        </sensor>
+      </link>
+    </model>
+
+
+  </world>
+</sdf>
