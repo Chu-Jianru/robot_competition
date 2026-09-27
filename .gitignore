@@ -1,3 +1,9 @@
 build/
 install/
 log/
+**/__pycache__/
+*.pyc
+*.sdf.backup
+*.sdf.bak
+*.sdf.before_control
+*.sdf.diff_backup
