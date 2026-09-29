@@ -47,6 +47,14 @@ def box(name, x, y, z, sx, sy, sz, color, mass=0.1, mu=1.0):
             <mu2>{mu}</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -129,6 +137,14 @@ for name, x, y in wheels:
             <slip2>1.0</slip2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -163,6 +179,43 @@ box(
 )
 
 fixed("shovel_joint", "base_link", "front_shovel")
+
+# 配重贴在轮距中间、贴近地面，不伸出铲面。铲在前轮前方，硬碰物块时轻车会被掀翻。
+ballast_mass = 3.0
+ballast_sx, ballast_sy, ballast_sz = 0.07, 0.06, 0.012
+bixx, biyy, bizz = box_inertia(ballast_mass, ballast_sx, ballast_sy, ballast_sz)
+s.append(f'''
+  <link name="ballast">
+    <pose>0 0 0.008 0 0 0</pose>
+    <inertial>
+      <mass>{ballast_mass}</mass>
+      <inertia>
+        <ixx>{bixx:.8f}</ixx>
+        <iyy>{biyy:.8f}</iyy>
+        <izz>{bizz:.8f}</izz>
+      </inertia>
+    </inertial>
+    <collision name="collision">
+      <geometry>
+        <box><size>{ballast_sx} {ballast_sy} {ballast_sz}</size></box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode><mu>0</mu><mu2>0</mu2></ode>
+        </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+  </link>
+''')
+fixed("ballast_joint", "base_link", "ballast")
 
 # 俯视四角色标。前两角品红，后两角青色。位置取两对中心的中点，朝向从青指向品红。
 for name, x, y, color in (
@@ -268,9 +321,9 @@ def block_models(poses) -> str:
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -396,6 +449,16 @@ world_xml = f'''<?xml version="1.0"?>
           <geometry>
             <box><size>1.2 1.2 0.01</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
 
         <collision name="wall_left">
@@ -403,6 +466,16 @@ world_xml = f'''<?xml version="1.0"?>
           <geometry>
             <box><size>0.02 1.24 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_left_visual">
           <pose>-0.61 0 0.05 0 0 0</pose>
@@ -420,6 +493,16 @@ world_xml = f'''<?xml version="1.0"?>
           <geometry>
             <box><size>0.02 1.24 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_right_visual">
           <pose>0.61 0 0.05 0 0 0</pose>
@@ -437,6 +520,16 @@ world_xml = f'''<?xml version="1.0"?>
           <geometry>
             <box><size>1.24 0.02 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_front_visual">
           <pose>0 0.61 0.05 0 0 0</pose>
@@ -454,6 +547,16 @@ world_xml = f'''<?xml version="1.0"?>
           <geometry>
             <box><size>1.24 0.02 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_back_visual">
           <pose>0 -0.61 0.05 0 0 0</pose>

@@ -53,6 +53,16 @@
           <geometry>
             <box><size>1.2 1.2 0.01</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
 
         <collision name="wall_left">
@@ -60,6 +70,16 @@
           <geometry>
             <box><size>0.02 1.24 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_left_visual">
           <pose>-0.61 0 0.05 0 0 0</pose>
@@ -77,6 +97,16 @@
           <geometry>
             <box><size>0.02 1.24 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_right_visual">
           <pose>0.61 0 0.05 0 0 0</pose>
@@ -94,6 +124,16 @@
           <geometry>
             <box><size>1.24 0.02 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_front_visual">
           <pose>0 0.61 0.05 0 0 0</pose>
@@ -111,6 +151,16 @@
           <geometry>
             <box><size>1.24 0.02 0.1</size></box>
           </geometry>
+          <surface>
+            <contact>
+              <ode>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
+                <min_depth>0.001</min_depth>
+              </ode>
+            </contact>
+          </surface>
         </collision>
         <visual name="wall_back_visual">
           <pose>0 -0.61 0.05 0 0 0</pose>
@@ -156,6 +206,14 @@
             <mu2>0.0</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -201,6 +259,14 @@
             <slip2>1.0</slip2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -251,6 +317,14 @@
             <slip2>1.0</slip2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -301,6 +375,14 @@
             <slip2>1.0</slip2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -351,6 +433,14 @@
             <slip2>1.0</slip2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -398,6 +488,14 @@
             <mu2>0.2</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -418,6 +516,41 @@
   <joint name="shovel_joint" type="fixed">
     <parent>base_link</parent>
     <child>front_shovel</child>
+  </joint>
+
+  <link name="ballast">
+    <pose>0 0 0.008 0 0 0</pose>
+    <inertial>
+      <mass>3.0</mass>
+      <inertia>
+        <ixx>0.00093600</ixx>
+        <iyy>0.00126100</iyy>
+        <izz>0.00212500</izz>
+      </inertia>
+    </inertial>
+    <collision name="collision">
+      <geometry>
+        <box><size>0.07 0.06 0.012</size></box>
+      </geometry>
+      <surface>
+        <friction>
+          <ode><mu>0</mu><mu2>0</mu2></ode>
+        </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
+      </surface>
+    </collision>
+  </link>
+
+  <joint name="ballast_joint" type="fixed">
+    <parent>base_link</parent>
+    <child>ballast</child>
   </joint>
 
   <link name="front_left_marker">
@@ -445,6 +578,14 @@
             <mu2>0.0</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -492,6 +633,14 @@
             <mu2>0.0</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -539,6 +688,14 @@
             <mu2>0.0</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -586,6 +743,14 @@
             <mu2>0.0</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -633,6 +798,14 @@
             <mu2>0.0</mu2>
           </ode>
         </friction>
+        <contact>
+          <ode>
+            <kp>2.0e4</kp>
+            <kd>20</kd>
+            <max_vel>0.2</max_vel>
+            <min_depth>0.001</min_depth>
+          </ode>
+        </contact>
       </surface>
     </collision>
 
@@ -690,9 +863,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -727,9 +900,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -764,9 +937,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -801,9 +974,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -838,9 +1011,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -875,9 +1048,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -912,9 +1085,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -949,9 +1122,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -986,9 +1159,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1023,9 +1196,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1060,9 +1233,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1097,9 +1270,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1134,9 +1307,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1171,9 +1344,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1208,9 +1381,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1245,9 +1418,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1282,9 +1455,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1319,9 +1492,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1356,9 +1529,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -1393,9 +1566,9 @@
             </friction>
             <contact>
               <ode>
-                <kp>1000000</kp>
-                <kd>100</kd>
-                <max_vel>0.5</max_vel>
+                <kp>2.0e4</kp>
+                <kd>20</kd>
+                <max_vel>0.2</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
