@@ -19,11 +19,11 @@ def box_inertia(mass, sx, sy, sz):
     )
 
 
-def box(name, x, y, z, sx, sy, sz, color, mass=0.1, mu=1.0):
+def box(name, x, y, z, sx, sy, sz, color, mass=0.1, mu=1.0, yaw=0.0):
     ixx, iyy, izz = box_inertia(mass, sx, sy, sz)
     s.append(f'''
   <link name="{name}">
-    <pose>{x} {y} {z} 0 0 0</pose>
+    <pose>{x} {y} {z} 0 0 {yaw}</pose>
 
     <inertial>
       <mass>{mass}</mass>
@@ -83,35 +83,60 @@ def fixed(name, parent, child):
 ''')
 
 
-# 机器人底盘：底面高于地面，避免刮地
-box(
-    "base_link",
-    0, 0, 0.045,
-    0.09, 0.085, 0.045,
-    "0.1 0.55 0.2 1",
-    1.0,
-    mu=0.0,
-)
+# 模型原点在几何中心。base_link 不占体积，中间空腔才能到底。
+s.append('''
+  <link name="base_link">
+    <inertial>
+      <mass>0.05</mass>
+      <inertia>
+        <ixx>0.00004</ixx>
+        <iyy>0.00004</iyy>
+        <izz>0.00004</izz>
+      </inertia>
+    </inertial>
+  </link>
+''')
 
-# 四个车轮：零摩擦，planar_move 才能横移/原地转
+# 车顶是一圈框，中间镂空。色块贴在前后横梁上。
+box("roof_rear", -0.038, 0, 0.050, 0.020, 0.080, 0.006, "0.25 0.25 0.28 1", 0.25, mu=0.0)
+box("roof_front", 0.038, 0, 0.050, 0.020, 0.080, 0.006, "0.25 0.25 0.28 1", 0.25, mu=0.0)
+box("roof_left", 0, 0.032, 0.050, 0.080, 0.016, 0.006, "0.25 0.25 0.28 1", 0.12, mu=0.0)
+box("roof_right", 0, -0.032, 0.050, 0.080, 0.016, 0.006, "0.25 0.25 0.28 1", 0.12, mu=0.0)
+fixed("roof_rear_joint", "base_link", "roof_rear")
+fixed("roof_front_joint", "base_link", "roof_front")
+fixed("roof_left_joint", "base_link", "roof_left")
+fixed("roof_right_joint", "base_link", "roof_right")
+
+# 左右纵梁顶到车顶、前端伸进滚刷，把顶框和刷子连成一体。中间仍不封底。
+box("rail_left", 0.005, 0.032, 0.029, 0.102, 0.010, 0.044, "0.15 0.15 0.16 1", 1.2, mu=0.0)
+box("rail_right", 0.005, -0.032, 0.029, 0.102, 0.010, 0.044, "0.15 0.15 0.16 1", 1.2, mu=0.0)
+fixed("rail_left_joint", "base_link", "rail_left")
+fixed("rail_right_joint", "base_link", "rail_right")
+
+# 腔体三面挡板，底面不封。开口朝滚刷，块扫进来后由后挡板带着往前走。
+box("wall_left", 0.008, 0.029, 0.027, 0.080, 0.010, 0.046, "0.32 0.34 0.38 1", 0.06, mu=0.4)
+box("wall_right", 0.008, -0.029, 0.027, 0.080, 0.010, 0.046, "0.32 0.34 0.38 1", 0.06, mu=0.4)
+box("wall_rear", -0.032, 0, 0.027, 0.012, 0.068, 0.046, "0.32 0.34 0.38 1", 0.06, mu=0.4)
+fixed("wall_left_joint", "base_link", "wall_left")
+fixed("wall_right_joint", "base_link", "wall_right")
+fixed("wall_rear_joint", "base_link", "wall_rear")
+
+# 四个麦克纳姆轮外观。碰撞无摩擦，仿真仍由 planar_move 平移。
 wheels = [
-    ("front_left",   0.03,  0.047),
-    ("front_right",  0.03, -0.047),
-    ("rear_left",   -0.03,  0.047),
-    ("rear_right",  -0.03, -0.047),
+    ("front_left", 0.028, 0.048),
+    ("front_right", 0.028, -0.048),
+    ("rear_left", -0.028, 0.048),
+    ("rear_right", -0.028, -0.048),
 ]
-
 wheel_mass = 0.08
-wheel_r = 0.018
+wheel_r = 0.016
 wheel_h = 0.012
 wheel_ixx = wheel_mass / 12.0 * (3.0 * wheel_r * wheel_r + wheel_h * wheel_h)
 wheel_izz = 0.5 * wheel_mass * wheel_r * wheel_r
-
 for name, x, y in wheels:
     s.append(f'''
   <link name="{name}_wheel">
-    <pose>{x} {y} 0.018 1.57079632679 0 0</pose>
-
+    <pose>{x} {y} 0.016 1.57079632679 0 0</pose>
     <inertial>
       <mass>{wheel_mass}</mass>
       <inertia>
@@ -120,7 +145,6 @@ for name, x, y in wheels:
         <izz>{wheel_izz:.8f}</izz>
       </inertia>
     </inertial>
-
     <collision name="collision">
       <geometry>
         <cylinder>
@@ -147,8 +171,7 @@ for name, x, y in wheels:
         </contact>
       </surface>
     </collision>
-
-    <visual name="visual">
+    <visual name="rollers">
       <geometry>
         <cylinder>
           <radius>{wheel_r}</radius>
@@ -156,52 +179,58 @@ for name, x, y in wheels:
         </cylinder>
       </geometry>
       <material>
-        <ambient>0.08 0.08 0.08 1</ambient>
-        <diffuse>0.08 0.08 0.08 1</diffuse>
+        <ambient>0.05 0.05 0.05 1</ambient>
+        <diffuse>0.05 0.05 0.05 1</diffuse>
+      </material>
+    </visual>
+    <visual name="hub">
+      <geometry>
+        <cylinder>
+          <radius>0.010</radius>
+          <length>0.013</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <ambient>0.75 0.08 0.08 1</ambient>
+        <diffuse>0.75 0.08 0.08 1</diffuse>
       </material>
     </visual>
   </link>
-
   <joint name="{name}_joint" type="fixed">
     <parent>base_link</parent>
     <child>{name}_wheel</child>
   </joint>
 ''')
+    side = 1.0 if y > 0 else -1.0
+    box(f"{name}_axle", x, side * 0.041, 0.016, 0.006, 0.022, 0.006, "0.55 0.55 0.58 1", 0.02, mu=0.0)
 
-# 前置推铲抬离地面，避免刮地卡住偏航
-box(
-    "front_shovel",
-    0.056, 0, 0.020,
-    0.018, 0.115, 0.024,
-    "0.2 0.2 0.2 1",
-    0.15,
-    mu=0.2,
-)
-
-fixed("shovel_joint", "base_link", "front_shovel")
-
-# 配重贴在轮距中间、贴近地面，不伸出铲面。铲在前轮前方，硬碰物块时轻车会被掀翻。
-ballast_mass = 3.0
-ballast_sx, ballast_sy, ballast_sz = 0.07, 0.06, 0.012
-bixx, biyy, bizz = box_inertia(ballast_mass, ballast_sx, ballast_sy, ballast_sz)
+# 前滚刷：轴线沿车体左右。底边高于地面 4mm，能碰到 2cm 物块。
+brush_mass = 0.12
+brush_r = 0.012
+brush_len = 0.100
+brush_axial = 0.5 * brush_mass * brush_r * brush_r
+brush_perp = brush_mass / 12.0 * (3.0 * brush_r * brush_r + brush_len * brush_len)
 s.append(f'''
-  <link name="ballast">
-    <pose>0 0 0.008 0 0 0</pose>
+  <link name="brush">
+    <pose>0.064 0 0.016 1.57079632679 0 0</pose>
     <inertial>
-      <mass>{ballast_mass}</mass>
+      <mass>{brush_mass}</mass>
       <inertia>
-        <ixx>{bixx:.8f}</ixx>
-        <iyy>{biyy:.8f}</iyy>
-        <izz>{bizz:.8f}</izz>
+        <ixx>{brush_perp:.8f}</ixx>
+        <iyy>{brush_perp:.8f}</iyy>
+        <izz>{brush_axial:.8f}</izz>
       </inertia>
     </inertial>
     <collision name="collision">
       <geometry>
-        <box><size>{ballast_sx} {ballast_sy} {ballast_sz}</size></box>
+        <cylinder>
+          <radius>{brush_r}</radius>
+          <length>{brush_len}</length>
+        </cylinder>
       </geometry>
       <surface>
         <friction>
-          <ode><mu>0</mu><mu2>0</mu2></ode>
+          <ode><mu>0.4</mu><mu2>0.4</mu2></ode>
         </friction>
         <contact>
           <ode>
@@ -213,31 +242,52 @@ s.append(f'''
         </contact>
       </surface>
     </collision>
+    <visual name="bristles">
+      <geometry>
+        <cylinder>
+          <radius>{brush_r}</radius>
+          <length>{brush_len}</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <ambient>0.05 0.35 0.12 1</ambient>
+        <diffuse>0.05 0.35 0.12 1</diffuse>
+      </material>
+    </visual>
+    <visual name="shaft">
+      <geometry>
+        <cylinder>
+          <radius>0.004</radius>
+          <length>0.122</length>
+        </cylinder>
+      </geometry>
+      <material>
+        <ambient>0.55 0.55 0.58 1</ambient>
+        <diffuse>0.55 0.55 0.58 1</diffuse>
+      </material>
+    </visual>
   </link>
 ''')
-fixed("ballast_joint", "base_link", "ballast")
+fixed("brush_joint", "base_link", "brush")
 
-# 俯视四角色标。前两角品红，后两角青色。位置取两对中心的中点，朝向从青指向品红。
+# 两侧薄板套在刷轴两端。前端更靠近墙，往前走时把墙边的块拨向中间。
+box("plate_left", 0.064, 0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, mu=0.2, yaw=0.26)
+box("plate_right", 0.064, -0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, mu=0.2, yaw=-0.26)
+fixed("plate_left_joint", "base_link", "plate_left")
+fixed("plate_right_joint", "base_link", "plate_right")
+
+# 四角色块压进顶板 0.5mm，贴在车顶上。前品红，后青色。
+roof_top = 0.053
+tile_h = 0.003
+tile_z = roof_top - 0.0005 + tile_h / 2.0
 for name, x, y, color in (
-    ("front_left_marker", 0.032, 0.026, "1 0 1 1"),
-    ("front_right_marker", 0.032, -0.026, "1 0 1 1"),
-    ("rear_left_marker", -0.032, 0.026, "0 1 1 1"),
-    ("rear_right_marker", -0.032, -0.026, "0 1 1 1"),
+    ("front_left_marker", 0.038, 0.028, "1 0 1 1"),
+    ("front_right_marker", 0.038, -0.028, "1 0 1 1"),
+    ("rear_left_marker", -0.038, 0.028, "0 1 1 1"),
+    ("rear_right_marker", -0.038, -0.028, "0 1 1 1"),
 ):
-    box(name, x, y, 0.102, 0.02, 0.02, 0.004, color, 0.005, mu=0.0)
+    box(name, x, y, tile_z, 0.016, 0.016, tile_h, color, 0.004, mu=0.0)
     fixed(f"{name}_joint", "base_link", name)
-
-# 摄像头安装座
-box(
-    "camera_mount",
-    0, 0, 0.085,
-    0.025, 0.025, 0.025,
-    "0.1 0.1 0.1 1",
-    0.05,
-    mu=0.0,
-)
-
-fixed("camera_mount_joint", "base_link", "camera_mount")
 
 s.append('''
   <plugin name="omni_drive" filename="libgazebo_ros_planar_move.so">
@@ -252,6 +302,8 @@ s.append('''
     <odometry_frame>odom</odometry_frame>
     <robot_base_frame>base_link</robot_base_frame>
   </plugin>
+
+  <plugin name="keep_upright" filename="libkeep_upright.so"/>
 
 </model></sdf>
 ''')

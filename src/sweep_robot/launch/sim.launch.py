@@ -55,6 +55,15 @@ def _ros_lib_dirs() -> list:
     return libs
 
 
+def _upright_plugin_dirs() -> list:
+    here = os.path.abspath(__file__)
+    candidates = [
+        os.path.abspath(os.path.join(here, "..", "..", "..", "..", "..", "sweep_robot_gazebo", "lib")),
+        "/home/cjr/robot_competition/install/sweep_robot_gazebo/lib",
+    ]
+    return [path for path in candidates if os.path.isdir(path)]
+
+
 def generate_launch_description() -> LaunchDescription:
     default_world = _guess_world()
     world_dir = os.path.dirname(os.path.dirname(default_world))
@@ -67,7 +76,10 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("push", default_value="true"),
             DeclareLaunchArgument("autostart", default_value="false"),
             SetEnvironmentVariable("GAZEBO_MODEL_PATH", _model_path(models)),
-            SetEnvironmentVariable("GAZEBO_PLUGIN_PATH", _prepend_env("GAZEBO_PLUGIN_PATH", ros_libs)),
+            SetEnvironmentVariable(
+                "GAZEBO_PLUGIN_PATH",
+                _prepend_env("GAZEBO_PLUGIN_PATH", _upright_plugin_dirs() + ros_libs),
+            ),
             SetEnvironmentVariable("LD_LIBRARY_PATH", _prepend_env("LD_LIBRARY_PATH", ros_libs)),
             ExecuteProcess(
                 cmd=[

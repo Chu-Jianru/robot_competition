@@ -41,6 +41,12 @@ else
 fi
 export GAZEBO_RESOURCE_PATH="${ROOT}:${ROOT}/worlds:${GAZEBO_RESOURCE_PATH:-}"
 
+UPRIGHT_LIB="$(cd "${ROOT}/.." && pwd)/install/sweep_robot_gazebo/lib"
+if [ -d "${UPRIGHT_LIB}" ]; then
+  export GAZEBO_PLUGIN_PATH="${UPRIGHT_LIB}:${GAZEBO_PLUGIN_PATH:-}"
+  export LD_LIBRARY_PATH="${UPRIGHT_LIB}:${LD_LIBRARY_PATH:-}"
+fi
+
 if [ -n "${AMENT_PREFIX_PATH:-}" ]; then
   IFS=':' read -ra prefixes <<< "${AMENT_PREFIX_PATH}"
   for p in "${prefixes[@]}"; do
