@@ -192,7 +192,7 @@ s.append('''
       <remapping>cmd_vel:=cmd_vel</remapping>
       <remapping>odom:=odom</remapping>
     </ros>
-    <update_rate>50</update_rate>
+    <update_rate>0</update_rate>
     <publish_rate>50</publish_rate>
     <publish_odom>true</publish_odom>
     <publish_odom_tf>true</publish_odom_tf>
@@ -352,7 +352,7 @@ world_xml = f'''<?xml version="1.0"?>
     </scene>
 
     <light name="sun" type="directional">
-      <cast_shadows>true</cast_shadows>
+      <cast_shadows>false</cast_shadows>
       <pose>0 0 10 0 0 0</pose>
       <diffuse>0.8 0.8 0.8 1</diffuse>
       <specular>0.2 0.2 0.2 1</specular>

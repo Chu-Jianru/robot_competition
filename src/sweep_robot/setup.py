@@ -25,6 +25,8 @@ setup(
             "mecanum_ik = sweep_robot.mecanum_ik:main",
             "hsv_detector = sweep_robot.hsv_detector:main",
             "push_blocks = sweep_robot.push_blocks:main",
+            "record_trajectory = sweep_robot.record_trajectory:main",
+            "follow_path = sweep_robot.follow_path:main",
         ],
     },
 )

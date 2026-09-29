@@ -534,7 +534,7 @@
       <remapping>cmd_vel:=cmd_vel</remapping>
       <remapping>odom:=odom</remapping>
     </ros>
-    <update_rate>50</update_rate>
+    <update_rate>0</update_rate>
     <publish_rate>50</publish_rate>
     <publish_odom>true</publish_odom>
     <publish_odom_tf>true</publish_odom_tf>

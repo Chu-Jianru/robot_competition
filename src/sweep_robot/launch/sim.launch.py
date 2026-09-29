@@ -1,9 +1,5 @@
-"""打开比赛世界，并启动俯视检测和推块。
+"""打开比赛世界。默认按键盘录像生成的路线自动走，中间不再一顿一顿停。
 
-  source /opt/ros/humble/setup.bash
-  cd /home/cjr/robot_competition
-  colcon build --packages-select sweep_robot
-  source install/setup.bash
   ros2 launch sweep_robot sim.launch.py
 
 只要仿真、自己键盘遥控时:
@@ -90,14 +86,17 @@ def generate_launch_description() -> LaunchDescription:
                 executable="hsv_detector",
                 name="hsv_detector",
                 output="screen",
+                parameters=[{"use_sim_time": True}],
             ),
             Node(
                 package="sweep_robot",
-                executable="push_blocks",
-                name="push_blocks",
+                executable="follow_path",
+                name="follow_path",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("push")),
-                parameters=[{"autostart": LaunchConfiguration("autostart")}],
+                parameters=[
+                    {"use_sim_time": True, "autostart": LaunchConfiguration("autostart")},
+                ],
             ),
         ]
     )
