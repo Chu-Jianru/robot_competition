@@ -19,262 +19,128 @@ def box_inertia(mass, sx, sy, sz):
     )
 
 
-def box(name, x, y, z, sx, sy, sz, color, mass=0.1, mu=1.0, yaw=0.0):
+def _contact(mu, slip=False):
+    slip_xml = ""
+    if slip:
+        slip_xml = "\n              <slip1>1.0</slip1>\n              <slip2>1.0</slip2>"
+    return f'''        <surface>
+          <friction>
+            <ode>
+              <mu>{mu}</mu>
+              <mu2>{mu}</mu2>{slip_xml}
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>'''
+
+
+# 整车只有 base_link。外观和碰撞都挂在这一个刚体上，没有关节，不会散开或脱落。
+bodies = []
+pieces = []
+
+
+def _remember(mass, x, y, z, ixx, iyy, izz, ixy=0.0):
+    bodies.append((mass, x, y, z, ixx, iyy, izz, ixy))
+
+
+def add_box(name, x, y, z, sx, sy, sz, color, mass, mu, yaw=0.0):
     ixx, iyy, izz = box_inertia(mass, sx, sy, sz)
-    s.append(f'''
-  <link name="{name}">
-    <pose>{x} {y} {z} 0 0 {yaw}</pose>
-
-    <inertial>
-      <mass>{mass}</mass>
-      <inertia>
-        <ixx>{ixx:.8f}</ixx>
-        <iyy>{iyy:.8f}</iyy>
-        <izz>{izz:.8f}</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>{sx} {sy} {sz}</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>{mu}</mu>
-            <mu2>{mu}</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    c = math.cos(yaw)
+    s = math.sin(yaw)
+    _remember(
+        mass, x, y, z,
+        c * c * ixx + s * s * iyy,
+        s * s * ixx + c * c * iyy,
+        izz,
+        c * s * (ixx - iyy),
+    )
+    pose = f"{x} {y} {z} 0 0 {yaw}"
+    pieces.append(f'''
+    <collision name="{name}">
+      <pose>{pose}</pose>
+      <geometry><box><size>{sx} {sy} {sz}</size></box></geometry>
+{_contact(mu)}
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>{sx} {sy} {sz}</size>
-        </box>
-      </geometry>
-
+    <visual name="{name}">
+      <pose>{pose}</pose>
+      <geometry><box><size>{sx} {sy} {sz}</size></box></geometry>
       <material>
         <ambient>{color}</ambient>
         <diffuse>{color}</diffuse>
       </material>
-    </visual>
-  </link>
-''')
+    </visual>''')
 
 
-def fixed(name, parent, child):
-    s.append(f'''
-  <joint name="{name}" type="fixed">
-    <parent>{parent}</parent>
-    <child>{child}</child>
-  </joint>
-''')
+def add_cylinder(name, x, y, z, radius, length, color, mass, mu, roll=0.0, slip=False, collide=True):
+    perp = mass / 12.0 * (3.0 * radius * radius + length * length) if mass else 0.0
+    axial = 0.5 * mass * radius * radius
+    if abs(roll - math.pi / 2.0) < 1e-3:
+        ixx, iyy, izz = perp, axial, perp
+    else:
+        ixx, iyy, izz = perp, perp, axial
+    if mass:
+        _remember(mass, x, y, z, ixx, iyy, izz)
+    pose = f"{x} {y} {z} {roll} 0 0"
+    if collide:
+        pieces.append(f'''
+    <collision name="{name}">
+      <pose>{pose}</pose>
+      <geometry><cylinder><radius>{radius}</radius><length>{length}</length></cylinder></geometry>
+{_contact(mu, slip)}
+    </collision>''')
+    pieces.append(f'''
+    <visual name="{name}">
+      <pose>{pose}</pose>
+      <geometry><cylinder><radius>{radius}</radius><length>{length}</length></cylinder></geometry>
+      <material>
+        <ambient>{color}</ambient>
+        <diffuse>{color}</diffuse>
+      </material>
+    </visual>''')
 
-
-# 模型原点在几何中心。base_link 不占体积，中间空腔才能到底。
-s.append('''
-  <link name="base_link">
-    <inertial>
-      <mass>0.05</mass>
-      <inertia>
-        <ixx>0.00004</ixx>
-        <iyy>0.00004</iyy>
-        <izz>0.00004</izz>
-      </inertia>
-    </inertial>
-  </link>
-''')
 
 # 车顶是一圈框，中间镂空。色块贴在前后横梁上。
-box("roof_rear", -0.038, 0, 0.050, 0.020, 0.080, 0.006, "0.25 0.25 0.28 1", 0.25, mu=0.0)
-box("roof_front", 0.038, 0, 0.050, 0.020, 0.080, 0.006, "0.25 0.25 0.28 1", 0.25, mu=0.0)
-box("roof_left", 0, 0.032, 0.050, 0.080, 0.016, 0.006, "0.25 0.25 0.28 1", 0.12, mu=0.0)
-box("roof_right", 0, -0.032, 0.050, 0.080, 0.016, 0.006, "0.25 0.25 0.28 1", 0.12, mu=0.0)
-fixed("roof_rear_joint", "base_link", "roof_rear")
-fixed("roof_front_joint", "base_link", "roof_front")
-fixed("roof_left_joint", "base_link", "roof_left")
-fixed("roof_right_joint", "base_link", "roof_right")
+add_box("roof_rear", -0.038, 0, 0.050, 0.020, 0.080, 0.006, "0.25 0.25 0.28 1", 0.25, 0.0)
+add_box("roof_front", 0.038, 0, 0.050, 0.020, 0.080, 0.006, "0.25 0.25 0.28 1", 0.25, 0.0)
+add_box("roof_left", 0, 0.032, 0.050, 0.080, 0.016, 0.006, "0.25 0.25 0.28 1", 0.12, 0.0)
+add_box("roof_right", 0, -0.032, 0.050, 0.080, 0.016, 0.006, "0.25 0.25 0.28 1", 0.12, 0.0)
 
-# 左右纵梁顶到车顶、前端伸进滚刷，把顶框和刷子连成一体。中间仍不封底。
-box("rail_left", 0.005, 0.032, 0.029, 0.102, 0.010, 0.044, "0.15 0.15 0.16 1", 1.2, mu=0.0)
-box("rail_right", 0.005, -0.032, 0.029, 0.102, 0.010, 0.044, "0.15 0.15 0.16 1", 1.2, mu=0.0)
-fixed("rail_left_joint", "base_link", "rail_left")
-fixed("rail_right_joint", "base_link", "rail_right")
+# 左右纵梁顶到车顶、前端伸进滚刷。中间不封底。
+add_box("rail_left", 0.005, 0.032, 0.029, 0.102, 0.010, 0.044, "0.15 0.15 0.16 1", 1.2, 0.0)
+add_box("rail_right", 0.005, -0.032, 0.029, 0.102, 0.010, 0.044, "0.15 0.15 0.16 1", 1.2, 0.0)
 
 # 腔体三面挡板，底面不封。开口朝滚刷，块扫进来后由后挡板带着往前走。
-box("wall_left", 0.008, 0.029, 0.027, 0.080, 0.010, 0.046, "0.32 0.34 0.38 1", 0.06, mu=0.4)
-box("wall_right", 0.008, -0.029, 0.027, 0.080, 0.010, 0.046, "0.32 0.34 0.38 1", 0.06, mu=0.4)
-box("wall_rear", -0.032, 0, 0.027, 0.012, 0.068, 0.046, "0.32 0.34 0.38 1", 0.06, mu=0.4)
-fixed("wall_left_joint", "base_link", "wall_left")
-fixed("wall_right_joint", "base_link", "wall_right")
-fixed("wall_rear_joint", "base_link", "wall_rear")
+add_box("wall_left", 0.008, 0.029, 0.027, 0.080, 0.010, 0.046, "0.32 0.34 0.38 1", 0.06, 0.4)
+add_box("wall_right", 0.008, -0.029, 0.027, 0.080, 0.010, 0.046, "0.32 0.34 0.38 1", 0.06, 0.4)
+add_box("wall_rear", -0.032, 0, 0.027, 0.012, 0.068, 0.046, "0.32 0.34 0.38 1", 0.06, 0.4)
 
-# 四个麦克纳姆轮外观。碰撞无摩擦，仿真仍由 planar_move 平移。
-wheels = [
+# 四个麦克纳姆轮。碰撞无摩擦，仿真仍由 planar_move 平移。轮轴只是外观。
+axle_roll = math.pi / 2.0
+for name, x, y in (
     ("front_left", 0.028, 0.048),
     ("front_right", 0.028, -0.048),
     ("rear_left", -0.028, 0.048),
     ("rear_right", -0.028, -0.048),
-]
-wheel_mass = 0.08
-wheel_r = 0.016
-wheel_h = 0.012
-wheel_ixx = wheel_mass / 12.0 * (3.0 * wheel_r * wheel_r + wheel_h * wheel_h)
-wheel_izz = 0.5 * wheel_mass * wheel_r * wheel_r
-for name, x, y in wheels:
-    s.append(f'''
-  <link name="{name}_wheel">
-    <pose>{x} {y} 0.016 1.57079632679 0 0</pose>
-    <inertial>
-      <mass>{wheel_mass}</mass>
-      <inertia>
-        <ixx>{wheel_ixx:.8f}</ixx>
-        <iyy>{wheel_ixx:.8f}</iyy>
-        <izz>{wheel_izz:.8f}</izz>
-      </inertia>
-    </inertial>
-    <collision name="collision">
-      <geometry>
-        <cylinder>
-          <radius>{wheel_r}</radius>
-          <length>{wheel_h}</length>
-        </cylinder>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-            <slip1>1.0</slip1>
-            <slip2>1.0</slip2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
-    </collision>
-    <visual name="rollers">
-      <geometry>
-        <cylinder>
-          <radius>{wheel_r}</radius>
-          <length>{wheel_h}</length>
-        </cylinder>
-      </geometry>
-      <material>
-        <ambient>0.05 0.05 0.05 1</ambient>
-        <diffuse>0.05 0.05 0.05 1</diffuse>
-      </material>
-    </visual>
-    <visual name="hub">
-      <geometry>
-        <cylinder>
-          <radius>0.010</radius>
-          <length>0.013</length>
-        </cylinder>
-      </geometry>
-      <material>
-        <ambient>0.75 0.08 0.08 1</ambient>
-        <diffuse>0.75 0.08 0.08 1</diffuse>
-      </material>
-    </visual>
-  </link>
-  <joint name="{name}_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>{name}_wheel</child>
-  </joint>
-''')
+):
+    add_cylinder(f"{name}_wheel", x, y, 0.016, 0.016, 0.012, "0.05 0.05 0.05 1", 0.08, 0.0, axle_roll, slip=True)
+    add_cylinder(f"{name}_hub", x, y, 0.016, 0.010, 0.013, "0.75 0.08 0.08 1", 0.0, 0.0, axle_roll, collide=False)
     side = 1.0 if y > 0 else -1.0
-    box(f"{name}_axle", x, side * 0.041, 0.016, 0.006, 0.022, 0.006, "0.55 0.55 0.58 1", 0.02, mu=0.0)
+    add_box(f"{name}_axle", x, side * 0.041, 0.016, 0.006, 0.022, 0.006, "0.55 0.55 0.58 1", 0.02, 0.0)
 
-# 前滚刷：轴线沿车体左右。底边高于地面 4mm，能碰到 2cm 物块。
-brush_mass = 0.12
-brush_r = 0.012
-brush_len = 0.100
-brush_axial = 0.5 * brush_mass * brush_r * brush_r
-brush_perp = brush_mass / 12.0 * (3.0 * brush_r * brush_r + brush_len * brush_len)
-s.append(f'''
-  <link name="brush">
-    <pose>0.064 0 0.016 1.57079632679 0 0</pose>
-    <inertial>
-      <mass>{brush_mass}</mass>
-      <inertia>
-        <ixx>{brush_perp:.8f}</ixx>
-        <iyy>{brush_perp:.8f}</iyy>
-        <izz>{brush_axial:.8f}</izz>
-      </inertia>
-    </inertial>
-    <collision name="collision">
-      <geometry>
-        <cylinder>
-          <radius>{brush_r}</radius>
-          <length>{brush_len}</length>
-        </cylinder>
-      </geometry>
-      <surface>
-        <friction>
-          <ode><mu>0.4</mu><mu2>0.4</mu2></ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
-    </collision>
-    <visual name="bristles">
-      <geometry>
-        <cylinder>
-          <radius>{brush_r}</radius>
-          <length>{brush_len}</length>
-        </cylinder>
-      </geometry>
-      <material>
-        <ambient>0.05 0.35 0.12 1</ambient>
-        <diffuse>0.05 0.35 0.12 1</diffuse>
-      </material>
-    </visual>
-    <visual name="shaft">
-      <geometry>
-        <cylinder>
-          <radius>0.004</radius>
-          <length>0.122</length>
-        </cylinder>
-      </geometry>
-      <material>
-        <ambient>0.55 0.55 0.58 1</ambient>
-        <diffuse>0.55 0.55 0.58 1</diffuse>
-      </material>
-    </visual>
-  </link>
-''')
-fixed("brush_joint", "base_link", "brush")
+# 前滚刷和中间的轴是同一刚体。轴只显示，不单独碰撞。
+add_cylinder("brush", 0.064, 0, 0.016, 0.012, 0.100, "0.05 0.35 0.12 1", 0.16, 0.4, axle_roll)
+add_cylinder("brush_shaft", 0.064, 0, 0.016, 0.004, 0.122, "0.55 0.55 0.58 1", 0.0, 0.0, axle_roll, collide=False)
 
 # 两侧薄板套在刷轴两端。前端更靠近墙，往前走时把墙边的块拨向中间。
-box("plate_left", 0.064, 0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, mu=0.2, yaw=0.26)
-box("plate_right", 0.064, -0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, mu=0.2, yaw=-0.26)
-fixed("plate_left_joint", "base_link", "plate_left")
-fixed("plate_right_joint", "base_link", "plate_right")
+add_box("plate_left", 0.064, 0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, 0.2, yaw=0.26)
+add_box("plate_right", 0.064, -0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, 0.2, yaw=-0.26)
 
 # 四角色块压进顶板 0.5mm，贴在车顶上。前品红，后青色。
 roof_top = 0.053
@@ -286,8 +152,47 @@ for name, x, y, color in (
     ("rear_left_marker", -0.038, 0.028, "0 1 1 1"),
     ("rear_right_marker", -0.038, -0.028, "0 1 1 1"),
 ):
-    box(name, x, y, tile_z, 0.016, 0.016, tile_h, color, 0.004, mu=0.0)
-    fixed(f"{name}_joint", "base_link", name)
+    add_box(name, x, y, tile_z, 0.016, 0.016, tile_h, color, 0.004, 0.0)
+
+total_m = sum(item[0] for item in bodies)
+cx = sum(item[0] * item[1] for item in bodies) / total_m
+cy = sum(item[0] * item[2] for item in bodies) / total_m
+cz = sum(item[0] * item[3] for item in bodies) / total_m
+ixx = iyy = izz = ixy = ixz = iyz = 0.0
+for mass, x, y, z, part_ixx, part_iyy, part_izz, part_ixy in bodies:
+    dx, dy, dz = x - cx, y - cy, z - cz
+    ixx += part_ixx + mass * (dy * dy + dz * dz)
+    iyy += part_iyy + mass * (dx * dx + dz * dz)
+    izz += part_izz + mass * (dx * dx + dy * dy)
+    ixy += part_ixy - mass * dx * dy
+    ixz += -mass * dx * dz
+    iyz += -mass * dy * dz
+minor = ixx * iyy - ixy * ixy
+det = (
+    ixx * (iyy * izz - iyz * iyz)
+    - ixy * (ixy * izz - iyz * ixz)
+    + ixz * (ixy * iyz - iyy * ixz)
+)
+if ixx <= 0 or minor <= 0 or det <= 0:
+    raise RuntimeError(f"整车惯量不是正定的: {ixx} {minor} {det}")
+
+s.append(f'''
+  <link name="base_link">
+    <inertial>
+      <pose>{cx:.6f} {cy:.6f} {cz:.6f} 0 0 0</pose>
+      <mass>{total_m:.6f}</mass>
+      <inertia>
+        <ixx>{ixx:.8f}</ixx>
+        <iyy>{iyy:.8f}</iyy>
+        <izz>{izz:.8f}</izz>
+        <ixy>{ixy:.8f}</ixy>
+        <ixz>{ixz:.8f}</ixz>
+        <iyz>{iyz:.8f}</iyz>
+      </inertia>
+    </inertial>
+{"".join(pieces)}
+  </link>
+''')
 
 s.append('''
   <plugin name="omni_drive" filename="libgazebo_ros_planar_move.so">

@@ -183,1365 +183,739 @@
 
   <link name="base_link">
     <inertial>
-      <mass>0.05</mass>
+      <pose>0.006640 0.000000 0.030826 0 0 0</pose>
+      <mass>3.976000</mass>
       <inertia>
-        <ixx>0.00004</ixx>
-        <iyy>0.00004</iyy>
-        <izz>0.00004</izz>
-      </inertia>
-    </inertial>
-  </link>
-
-  <link name="roof_rear">
-    <pose>-0.038 0 0.05 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.25</mass>
-      <inertia>
-        <ixx>0.00013408</ixx>
-        <iyy>0.00000908</iyy>
-        <izz>0.00014167</izz>
+        <ixx>0.00528669</ixx>
+        <iyy>0.00519550</iyy>
+        <izz>0.00871955</izz>
+        <ixy>0.00000000</ixy>
+        <ixz>0.00024597</ixz>
+        <iyz>-0.00000000</iyz>
       </inertia>
     </inertial>
 
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.02 0.08 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="roof_rear">
+      <pose>-0.038 0 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.02 0.08 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.02 0.08 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="roof_rear">
+      <pose>-0.038 0 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.02 0.08 0.006</size></box></geometry>
       <material>
         <ambient>0.25 0.25 0.28 1</ambient>
         <diffuse>0.25 0.25 0.28 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="roof_front">
-    <pose>0.038 0 0.05 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.25</mass>
-      <inertia>
-        <ixx>0.00013408</ixx>
-        <iyy>0.00000908</iyy>
-        <izz>0.00014167</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.02 0.08 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="roof_front">
+      <pose>0.038 0 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.02 0.08 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.02 0.08 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="roof_front">
+      <pose>0.038 0 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.02 0.08 0.006</size></box></geometry>
       <material>
         <ambient>0.25 0.25 0.28 1</ambient>
         <diffuse>0.25 0.25 0.28 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="roof_left">
-    <pose>0 0.032 0.05 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.12</mass>
-      <inertia>
-        <ixx>0.00000292</ixx>
-        <iyy>0.00006436</iyy>
-        <izz>0.00006656</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.08 0.016 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="roof_left">
+      <pose>0 0.032 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.016 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.08 0.016 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="roof_left">
+      <pose>0 0.032 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.016 0.006</size></box></geometry>
       <material>
         <ambient>0.25 0.25 0.28 1</ambient>
         <diffuse>0.25 0.25 0.28 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="roof_right">
-    <pose>0 -0.032 0.05 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.12</mass>
-      <inertia>
-        <ixx>0.00000292</ixx>
-        <iyy>0.00006436</iyy>
-        <izz>0.00006656</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.08 0.016 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="roof_right">
+      <pose>0 -0.032 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.016 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.08 0.016 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="roof_right">
+      <pose>0 -0.032 0.05 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.016 0.006</size></box></geometry>
       <material>
         <ambient>0.25 0.25 0.28 1</ambient>
         <diffuse>0.25 0.25 0.28 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <joint name="roof_rear_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>roof_rear</child>
-  </joint>
-
-  <joint name="roof_front_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>roof_front</child>
-  </joint>
-
-  <joint name="roof_left_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>roof_left</child>
-  </joint>
-
-  <joint name="roof_right_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>roof_right</child>
-  </joint>
-
-  <link name="rail_left">
-    <pose>0.005 0.032 0.029 0 0 0.0</pose>
-
-    <inertial>
-      <mass>1.2</mass>
-      <inertia>
-        <ixx>0.00020360</ixx>
-        <iyy>0.00123400</iyy>
-        <izz>0.00105040</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.102 0.01 0.044</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="rail_left">
+      <pose>0.005 0.032 0.029 0 0 0.0</pose>
+      <geometry><box><size>0.102 0.01 0.044</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.102 0.01 0.044</size>
-        </box>
-      </geometry>
-
+    <visual name="rail_left">
+      <pose>0.005 0.032 0.029 0 0 0.0</pose>
+      <geometry><box><size>0.102 0.01 0.044</size></box></geometry>
       <material>
         <ambient>0.15 0.15 0.16 1</ambient>
         <diffuse>0.15 0.15 0.16 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="rail_right">
-    <pose>0.005 -0.032 0.029 0 0 0.0</pose>
-
-    <inertial>
-      <mass>1.2</mass>
-      <inertia>
-        <ixx>0.00020360</ixx>
-        <iyy>0.00123400</iyy>
-        <izz>0.00105040</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.102 0.01 0.044</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="rail_right">
+      <pose>0.005 -0.032 0.029 0 0 0.0</pose>
+      <geometry><box><size>0.102 0.01 0.044</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.102 0.01 0.044</size>
-        </box>
-      </geometry>
-
+    <visual name="rail_right">
+      <pose>0.005 -0.032 0.029 0 0 0.0</pose>
+      <geometry><box><size>0.102 0.01 0.044</size></box></geometry>
       <material>
         <ambient>0.15 0.15 0.16 1</ambient>
         <diffuse>0.15 0.15 0.16 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <joint name="rail_left_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>rail_left</child>
-  </joint>
-
-  <joint name="rail_right_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>rail_right</child>
-  </joint>
-
-  <link name="wall_left">
-    <pose>0.008 0.029 0.027 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.06</mass>
-      <inertia>
-        <ixx>0.00001108</ixx>
-        <iyy>0.00004258</iyy>
-        <izz>0.00003250</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.08 0.01 0.046</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.4</mu>
-            <mu2>0.4</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="wall_left">
+      <pose>0.008 0.029 0.027 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.01 0.046</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.4</mu>
+              <mu2>0.4</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.08 0.01 0.046</size>
-        </box>
-      </geometry>
-
+    <visual name="wall_left">
+      <pose>0.008 0.029 0.027 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.01 0.046</size></box></geometry>
       <material>
         <ambient>0.32 0.34 0.38 1</ambient>
         <diffuse>0.32 0.34 0.38 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="wall_right">
-    <pose>0.008 -0.029 0.027 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.06</mass>
-      <inertia>
-        <ixx>0.00001108</ixx>
-        <iyy>0.00004258</iyy>
-        <izz>0.00003250</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.08 0.01 0.046</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.4</mu>
-            <mu2>0.4</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="wall_right">
+      <pose>0.008 -0.029 0.027 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.01 0.046</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.4</mu>
+              <mu2>0.4</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.08 0.01 0.046</size>
-        </box>
-      </geometry>
-
+    <visual name="wall_right">
+      <pose>0.008 -0.029 0.027 0 0 0.0</pose>
+      <geometry><box><size>0.08 0.01 0.046</size></box></geometry>
       <material>
         <ambient>0.32 0.34 0.38 1</ambient>
         <diffuse>0.32 0.34 0.38 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="wall_rear">
-    <pose>-0.032 0 0.027 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.06</mass>
-      <inertia>
-        <ixx>0.00003370</ixx>
-        <iyy>0.00001130</iyy>
-        <izz>0.00002384</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.012 0.068 0.046</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.4</mu>
-            <mu2>0.4</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="wall_rear">
+      <pose>-0.032 0 0.027 0 0 0.0</pose>
+      <geometry><box><size>0.012 0.068 0.046</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.4</mu>
+              <mu2>0.4</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.012 0.068 0.046</size>
-        </box>
-      </geometry>
-
+    <visual name="wall_rear">
+      <pose>-0.032 0 0.027 0 0 0.0</pose>
+      <geometry><box><size>0.012 0.068 0.046</size></box></geometry>
       <material>
         <ambient>0.32 0.34 0.38 1</ambient>
         <diffuse>0.32 0.34 0.38 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <joint name="wall_left_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>wall_left</child>
-  </joint>
-
-  <joint name="wall_right_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>wall_right</child>
-  </joint>
-
-  <joint name="wall_rear_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>wall_rear</child>
-  </joint>
-
-  <link name="front_left_wheel">
-    <pose>0.028 0.048 0.016 1.57079632679 0 0</pose>
-    <inertial>
-      <mass>0.08</mass>
-      <inertia>
-        <ixx>0.00000608</ixx>
-        <iyy>0.00000608</iyy>
-        <izz>0.00001024</izz>
-      </inertia>
-    </inertial>
-    <collision name="collision">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-            <slip1>1.0</slip1>
-            <slip2>1.0</slip2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="front_left_wheel">
+      <pose>0.028 0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+              <slip1>1.0</slip1>
+              <slip2>1.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-    <visual name="rollers">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
+    <visual name="front_left_wheel">
+      <pose>0.028 0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
       <material>
         <ambient>0.05 0.05 0.05 1</ambient>
         <diffuse>0.05 0.05 0.05 1</diffuse>
       </material>
     </visual>
-    <visual name="hub">
-      <geometry>
-        <cylinder>
-          <radius>0.010</radius>
-          <length>0.013</length>
-        </cylinder>
-      </geometry>
+    <visual name="front_left_hub">
+      <pose>0.028 0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.01</radius><length>0.013</length></cylinder></geometry>
       <material>
         <ambient>0.75 0.08 0.08 1</ambient>
         <diffuse>0.75 0.08 0.08 1</diffuse>
       </material>
     </visual>
-  </link>
-  <joint name="front_left_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>front_left_wheel</child>
-  </joint>
-
-  <link name="front_left_axle">
-    <pose>0.028 0.041 0.016 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.02</mass>
-      <inertia>
-        <ixx>0.00000087</ixx>
-        <iyy>0.00000012</iyy>
-        <izz>0.00000087</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="front_left_axle">
+      <pose>0.028 0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="front_left_axle">
+      <pose>0.028 0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
       <material>
         <ambient>0.55 0.55 0.58 1</ambient>
         <diffuse>0.55 0.55 0.58 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="front_right_wheel">
-    <pose>0.028 -0.048 0.016 1.57079632679 0 0</pose>
-    <inertial>
-      <mass>0.08</mass>
-      <inertia>
-        <ixx>0.00000608</ixx>
-        <iyy>0.00000608</iyy>
-        <izz>0.00001024</izz>
-      </inertia>
-    </inertial>
-    <collision name="collision">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-            <slip1>1.0</slip1>
-            <slip2>1.0</slip2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="front_right_wheel">
+      <pose>0.028 -0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+              <slip1>1.0</slip1>
+              <slip2>1.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-    <visual name="rollers">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
+    <visual name="front_right_wheel">
+      <pose>0.028 -0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
       <material>
         <ambient>0.05 0.05 0.05 1</ambient>
         <diffuse>0.05 0.05 0.05 1</diffuse>
       </material>
     </visual>
-    <visual name="hub">
-      <geometry>
-        <cylinder>
-          <radius>0.010</radius>
-          <length>0.013</length>
-        </cylinder>
-      </geometry>
+    <visual name="front_right_hub">
+      <pose>0.028 -0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.01</radius><length>0.013</length></cylinder></geometry>
       <material>
         <ambient>0.75 0.08 0.08 1</ambient>
         <diffuse>0.75 0.08 0.08 1</diffuse>
       </material>
     </visual>
-  </link>
-  <joint name="front_right_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>front_right_wheel</child>
-  </joint>
-
-  <link name="front_right_axle">
-    <pose>0.028 -0.041 0.016 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.02</mass>
-      <inertia>
-        <ixx>0.00000087</ixx>
-        <iyy>0.00000012</iyy>
-        <izz>0.00000087</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="front_right_axle">
+      <pose>0.028 -0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="front_right_axle">
+      <pose>0.028 -0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
       <material>
         <ambient>0.55 0.55 0.58 1</ambient>
         <diffuse>0.55 0.55 0.58 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="rear_left_wheel">
-    <pose>-0.028 0.048 0.016 1.57079632679 0 0</pose>
-    <inertial>
-      <mass>0.08</mass>
-      <inertia>
-        <ixx>0.00000608</ixx>
-        <iyy>0.00000608</iyy>
-        <izz>0.00001024</izz>
-      </inertia>
-    </inertial>
-    <collision name="collision">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-            <slip1>1.0</slip1>
-            <slip2>1.0</slip2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="rear_left_wheel">
+      <pose>-0.028 0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+              <slip1>1.0</slip1>
+              <slip2>1.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-    <visual name="rollers">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
+    <visual name="rear_left_wheel">
+      <pose>-0.028 0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
       <material>
         <ambient>0.05 0.05 0.05 1</ambient>
         <diffuse>0.05 0.05 0.05 1</diffuse>
       </material>
     </visual>
-    <visual name="hub">
-      <geometry>
-        <cylinder>
-          <radius>0.010</radius>
-          <length>0.013</length>
-        </cylinder>
-      </geometry>
+    <visual name="rear_left_hub">
+      <pose>-0.028 0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.01</radius><length>0.013</length></cylinder></geometry>
       <material>
         <ambient>0.75 0.08 0.08 1</ambient>
         <diffuse>0.75 0.08 0.08 1</diffuse>
       </material>
     </visual>
-  </link>
-  <joint name="rear_left_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>rear_left_wheel</child>
-  </joint>
-
-  <link name="rear_left_axle">
-    <pose>-0.028 0.041 0.016 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.02</mass>
-      <inertia>
-        <ixx>0.00000087</ixx>
-        <iyy>0.00000012</iyy>
-        <izz>0.00000087</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="rear_left_axle">
+      <pose>-0.028 0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="rear_left_axle">
+      <pose>-0.028 0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
       <material>
         <ambient>0.55 0.55 0.58 1</ambient>
         <diffuse>0.55 0.55 0.58 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="rear_right_wheel">
-    <pose>-0.028 -0.048 0.016 1.57079632679 0 0</pose>
-    <inertial>
-      <mass>0.08</mass>
-      <inertia>
-        <ixx>0.00000608</ixx>
-        <iyy>0.00000608</iyy>
-        <izz>0.00001024</izz>
-      </inertia>
-    </inertial>
-    <collision name="collision">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-            <slip1>1.0</slip1>
-            <slip2>1.0</slip2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="rear_right_wheel">
+      <pose>-0.028 -0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+              <slip1>1.0</slip1>
+              <slip2>1.0</slip2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-    <visual name="rollers">
-      <geometry>
-        <cylinder>
-          <radius>0.016</radius>
-          <length>0.012</length>
-        </cylinder>
-      </geometry>
+    <visual name="rear_right_wheel">
+      <pose>-0.028 -0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.016</radius><length>0.012</length></cylinder></geometry>
       <material>
         <ambient>0.05 0.05 0.05 1</ambient>
         <diffuse>0.05 0.05 0.05 1</diffuse>
       </material>
     </visual>
-    <visual name="hub">
-      <geometry>
-        <cylinder>
-          <radius>0.010</radius>
-          <length>0.013</length>
-        </cylinder>
-      </geometry>
+    <visual name="rear_right_hub">
+      <pose>-0.028 -0.048 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.01</radius><length>0.013</length></cylinder></geometry>
       <material>
         <ambient>0.75 0.08 0.08 1</ambient>
         <diffuse>0.75 0.08 0.08 1</diffuse>
       </material>
     </visual>
-  </link>
-  <joint name="rear_right_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>rear_right_wheel</child>
-  </joint>
-
-  <link name="rear_right_axle">
-    <pose>-0.028 -0.041 0.016 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.02</mass>
-      <inertia>
-        <ixx>0.00000087</ixx>
-        <iyy>0.00000012</iyy>
-        <izz>0.00000087</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="rear_right_axle">
+      <pose>-0.028 -0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.006 0.022 0.006</size>
-        </box>
-      </geometry>
-
+    <visual name="rear_right_axle">
+      <pose>-0.028 -0.041 0.016 0 0 0.0</pose>
+      <geometry><box><size>0.006 0.022 0.006</size></box></geometry>
       <material>
         <ambient>0.55 0.55 0.58 1</ambient>
         <diffuse>0.55 0.55 0.58 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="brush">
-    <pose>0.064 0 0.016 1.57079632679 0 0</pose>
-    <inertial>
-      <mass>0.12</mass>
-      <inertia>
-        <ixx>0.00010432</ixx>
-        <iyy>0.00010432</iyy>
-        <izz>0.00000864</izz>
-      </inertia>
-    </inertial>
-    <collision name="collision">
-      <geometry>
-        <cylinder>
-          <radius>0.012</radius>
-          <length>0.1</length>
-        </cylinder>
-      </geometry>
-      <surface>
-        <friction>
-          <ode><mu>0.4</mu><mu2>0.4</mu2></ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="brush">
+      <pose>0.064 0 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.012</radius><length>0.1</length></cylinder></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.4</mu>
+              <mu2>0.4</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-    <visual name="bristles">
-      <geometry>
-        <cylinder>
-          <radius>0.012</radius>
-          <length>0.1</length>
-        </cylinder>
-      </geometry>
+    <visual name="brush">
+      <pose>0.064 0 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.012</radius><length>0.1</length></cylinder></geometry>
       <material>
         <ambient>0.05 0.35 0.12 1</ambient>
         <diffuse>0.05 0.35 0.12 1</diffuse>
       </material>
     </visual>
-    <visual name="shaft">
-      <geometry>
-        <cylinder>
-          <radius>0.004</radius>
-          <length>0.122</length>
-        </cylinder>
-      </geometry>
+    <visual name="brush_shaft">
+      <pose>0.064 0 0.016 1.5707963267948966 0 0</pose>
+      <geometry><cylinder><radius>0.004</radius><length>0.122</length></cylinder></geometry>
       <material>
         <ambient>0.55 0.55 0.58 1</ambient>
         <diffuse>0.55 0.55 0.58 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <joint name="brush_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>brush</child>
-  </joint>
-
-  <link name="plate_left">
-    <pose>0.064 0.057 0.016 0 0 0.26</pose>
-
-    <inertial>
-      <mass>0.04</mass>
-      <inertia>
-        <ixx>0.00000091</ixx>
-        <iyy>0.00000171</iyy>
-        <izz>0.00000091</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.016 0.004 0.016</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.2</mu>
-            <mu2>0.2</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="plate_left">
+      <pose>0.064 0.057 0.016 0 0 0.26</pose>
+      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.2</mu>
+              <mu2>0.2</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.016 0.004 0.016</size>
-        </box>
-      </geometry>
-
+    <visual name="plate_left">
+      <pose>0.064 0.057 0.016 0 0 0.26</pose>
+      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
       <material>
         <ambient>0.12 0.12 0.12 1</ambient>
         <diffuse>0.12 0.12 0.12 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <link name="plate_right">
-    <pose>0.064 -0.057 0.016 0 0 -0.26</pose>
-
-    <inertial>
-      <mass>0.04</mass>
-      <inertia>
-        <ixx>0.00000091</ixx>
-        <iyy>0.00000171</iyy>
-        <izz>0.00000091</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.016 0.004 0.016</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.2</mu>
-            <mu2>0.2</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="plate_right">
+      <pose>0.064 -0.057 0.016 0 0 -0.26</pose>
+      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.2</mu>
+              <mu2>0.2</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.016 0.004 0.016</size>
-        </box>
-      </geometry>
-
+    <visual name="plate_right">
+      <pose>0.064 -0.057 0.016 0 0 -0.26</pose>
+      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
       <material>
         <ambient>0.12 0.12 0.12 1</ambient>
         <diffuse>0.12 0.12 0.12 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <joint name="plate_left_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>plate_left</child>
-  </joint>
-
-  <joint name="plate_right_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>plate_right</child>
-  </joint>
-
-  <link name="front_left_marker">
-    <pose>0.038 0.028 0.054 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.004</mass>
-      <inertia>
-        <ixx>0.00000009</ixx>
-        <iyy>0.00000009</iyy>
-        <izz>0.00000017</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="front_left_marker">
+      <pose>0.038 0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-
+    <visual name="front_left_marker">
+      <pose>0.038 0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
       <material>
         <ambient>1 0 1 1</ambient>
         <diffuse>1 0 1 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <joint name="front_left_marker_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>front_left_marker</child>
-  </joint>
-
-  <link name="front_right_marker">
-    <pose>0.038 -0.028 0.054 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.004</mass>
-      <inertia>
-        <ixx>0.00000009</ixx>
-        <iyy>0.00000009</iyy>
-        <izz>0.00000017</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="front_right_marker">
+      <pose>0.038 -0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-
+    <visual name="front_right_marker">
+      <pose>0.038 -0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
       <material>
         <ambient>1 0 1 1</ambient>
         <diffuse>1 0 1 1</diffuse>
       </material>
     </visual>
-  </link>
-
-  <joint name="front_right_marker_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>front_right_marker</child>
-  </joint>
-
-  <link name="rear_left_marker">
-    <pose>-0.038 0.028 0.054 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.004</mass>
-      <inertia>
-        <ixx>0.00000009</ixx>
-        <iyy>0.00000009</iyy>
-        <izz>0.00000017</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
+    <collision name="rear_left_marker">
+      <pose>-0.038 0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
     </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-
+    <visual name="rear_left_marker">
+      <pose>-0.038 0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
+      <material>
+        <ambient>0 1 1 1</ambient>
+        <diffuse>0 1 1 1</diffuse>
+      </material>
+    </visual>
+    <collision name="rear_right_marker">
+      <pose>-0.038 -0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
+        <surface>
+          <friction>
+            <ode>
+              <mu>0.0</mu>
+              <mu2>0.0</mu2>
+            </ode>
+          </friction>
+          <contact>
+            <ode>
+              <kp>2.0e4</kp>
+              <kd>20</kd>
+              <max_vel>0.2</max_vel>
+              <min_depth>0.001</min_depth>
+            </ode>
+          </contact>
+        </surface>
+    </collision>
+    <visual name="rear_right_marker">
+      <pose>-0.038 -0.028 0.054 0 0 0.0</pose>
+      <geometry><box><size>0.016 0.016 0.003</size></box></geometry>
       <material>
         <ambient>0 1 1 1</ambient>
         <diffuse>0 1 1 1</diffuse>
       </material>
     </visual>
   </link>
-
-  <joint name="rear_left_marker_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>rear_left_marker</child>
-  </joint>
-
-  <link name="rear_right_marker">
-    <pose>-0.038 -0.028 0.054 0 0 0.0</pose>
-
-    <inertial>
-      <mass>0.004</mass>
-      <inertia>
-        <ixx>0.00000009</ixx>
-        <iyy>0.00000009</iyy>
-        <izz>0.00000017</izz>
-      </inertia>
-    </inertial>
-
-    <collision name="collision">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-      <surface>
-        <friction>
-          <ode>
-            <mu>0.0</mu>
-            <mu2>0.0</mu2>
-          </ode>
-        </friction>
-        <contact>
-          <ode>
-            <kp>2.0e4</kp>
-            <kd>20</kd>
-            <max_vel>0.2</max_vel>
-            <min_depth>0.001</min_depth>
-          </ode>
-        </contact>
-      </surface>
-    </collision>
-
-    <visual name="visual">
-      <geometry>
-        <box>
-          <size>0.016 0.016 0.003</size>
-        </box>
-      </geometry>
-
-      <material>
-        <ambient>0 1 1 1</ambient>
-        <diffuse>0 1 1 1</diffuse>
-      </material>
-    </visual>
-  </link>
-
-  <joint name="rear_right_marker_joint" type="fixed">
-    <parent>base_link</parent>
-    <child>rear_right_marker</child>
-  </joint>
 
   <plugin name="omni_drive" filename="libgazebo_ros_planar_move.so">
     <ros>
