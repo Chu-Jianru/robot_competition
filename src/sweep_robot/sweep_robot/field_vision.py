@@ -102,6 +102,7 @@ def _blobs(
     min_side: float,
     max_side: float,
     min_area_px: float = 4.0,
+    long_only: bool = False,
 ) -> List[dict]:
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     found = []
@@ -118,7 +119,10 @@ def _blobs(
         side_a = float(np.linalg.norm(world_box[0] - world_box[1]))
         side_b = float(np.linalg.norm(world_box[1] - world_box[2]))
         short, long = min(side_a, side_b), max(side_a, side_b)
-        if short < min_side or long > max_side:
+        if long_only:
+            if long < min_side or long > max_side:
+                continue
+        elif short < min_side or long > max_side:
             continue
         center = image_to_world(homography, [(px, py)])[0]
         if abs(float(center[0])) > FIELD_HALF + 0.02 or abs(float(center[1])) > FIELD_HALF + 0.05:
@@ -171,7 +175,54 @@ def _on_blue(blue: np.ndarray, yellow: np.ndarray, px: float, py: float) -> bool
     return blue_count >= yellow_count
 
 
-def detect_field(bgr: np.ndarray) -> Dict:
+class FieldLock:
+    """跨帧稳住场地四角和蓝黄分界。
+
+    俯视相机是固定的，四角不该跟着轮廓噪声跳。单应性一跳，车和红块的坐标就一起漂。
+    同一把锁交给连续的 detect_field；单帧调用可以不传。
+    """
+
+    def __init__(self) -> None:
+        self.corners: Optional[np.ndarray] = None
+        self.corner_rejects = 0
+        self.bias: Optional[float] = None
+        self.bias_rejects = 0
+
+    def corners_of(self, measured: np.ndarray) -> np.ndarray:
+        measured = np.asarray(measured, dtype=np.float32).reshape(4, 2)
+        if self.corners is None:
+            self.corners = measured.copy()
+            return measured.copy()
+        jump = float(np.max(np.linalg.norm(measured - self.corners, axis=1)))
+        if jump > 18.0:
+            self.corner_rejects += 1
+            if self.corner_rejects < 6:
+                return self.corners.copy()
+            self.corners = measured.copy()
+            self.corner_rejects = 0
+            return measured.copy()
+        self.corner_rejects = 0
+        self.corners = 0.88 * self.corners + 0.12 * measured
+        return self.corners.copy()
+
+    def bias_of(self, measured: float) -> float:
+        measured = float(measured)
+        if self.bias is None:
+            self.bias = measured
+            return measured
+        if abs(measured - self.bias) > 0.03:
+            self.bias_rejects += 1
+            if self.bias_rejects < 5:
+                return self.bias
+            self.bias = measured
+            self.bias_rejects = 0
+            return measured
+        self.bias_rejects = 0
+        self.bias = 0.85 * self.bias + 0.15 * measured
+        return float(self.bias)
+
+
+def detect_field(bgr: np.ndarray, lock: Optional[FieldLock] = None) -> Dict:
     """从一帧 BGR 图得到红块、车的位姿，以及己方（y<0）剩余块数。"""
     empty = {
         "blocks": [],
@@ -206,6 +257,8 @@ def detect_field(bgr: np.ndarray) -> Dict:
     if paired is None:
         return empty
     src, dst = paired
+    if lock is not None:
+        src = lock.corners_of(src)
     homography = cv2.getPerspectiveTransform(src, dst)
 
     red = cv2.bitwise_or(_mask(hsv, *HSV["red_lo"]), _mask(hsv, *HSV["red_hi"]))
@@ -219,6 +272,8 @@ def detect_field(bgr: np.ndarray) -> Dict:
     markers = _blobs(magenta, homography, 0.012, 0.12)
     headings = _blobs(cyan, homography, 0.008, 0.12, min_area_px=4.0)
     bias = _boundary_y(blue, yellow, homography)
+    if lock is not None:
+        bias = lock.bias_of(bias)
     for block in blocks:
         x, y = block["xy"]
         y -= bias
@@ -236,6 +291,14 @@ def detect_field(bgr: np.ndarray) -> Dict:
     for heading in headings:
         x, y = heading["xy"]
         heading["xy"] = (x, y - bias)
+
+    # 推到墙边后会粘成一条，边长超过 8cm 的整堆以前被丢掉，车就以为己方没块了。
+    for pile in _blobs(red, homography, 0.08, 0.45, min_area_px=40.0, long_only=True):
+        x, y = pile["xy"]
+        y -= bias
+        pile["xy"] = (x, y)
+        pile["own"] = y < 0.0
+        blocks.append(pile)
 
     robot = None
     robot_px = None

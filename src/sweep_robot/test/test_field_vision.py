@@ -9,7 +9,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sweep_robot.field_vision import detect_field
+from sweep_robot.field_vision import FieldLock, detect_field
 
 
 def world_to_px(x: float, y: float, scale: float) -> tuple:
@@ -127,6 +127,22 @@ def check_offset_boundary() -> None:
     print("偏移中线: 通过，己方 10 个，符号和颜色一致")
 
 
+def check_field_lock() -> None:
+    lock = FieldLock()
+    base = np.float32([[10, 10], [400, 12], [398, 300], [14, 302]])
+    assert np.allclose(lock.corners_of(base), base)
+    noisy = base + np.float32([[1.0, -1.0], [0.0, 2.0], [-1.0, 0.0], [2.0, 1.0]])
+    smoothed = lock.corners_of(noisy)
+    assert np.max(np.abs(smoothed - base)) < 0.5
+    spike = base.copy()
+    spike[0] += (40.0, 0.0)
+    assert np.allclose(lock.corners_of(spike), smoothed)
+    assert abs(lock.bias_of(0.01) - 0.01) < 1e-9
+    assert abs(lock.bias_of(0.012) - 0.0103) < 1e-4
+    assert abs(lock.bias_of(0.08) - 0.0103) < 1e-4
+    print("四角锁定: 通过，单帧跳动被按住")
+
+
 def main() -> None:
     tilted = np.float32([[150, 60], [1120, 140], [1160, 880], [110, 800]])
     frame, blocks, robot = make_frame(tilted, (1280, 960))
@@ -136,6 +152,7 @@ def main() -> None:
     frame, blocks, robot = make_frame(other, (1100, 900))
     check("另一组倾斜", frame, blocks, robot)
     check_offset_boundary()
+    check_field_lock()
 
 
 if __name__ == "__main__":

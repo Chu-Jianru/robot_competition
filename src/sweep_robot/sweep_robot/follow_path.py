@@ -1,8 +1,9 @@
 """按比赛意图走，不再逐段复读键盘录像。
 
 开局沿固定路线：先把对方那一排推到东墙，倒回出发的那一列，再把己方那一排推到东墙。
-然后从己方半区把墙边这一堆推进对方角落。第一铲按路线走，第二铲用俯视看到的半堆位置对准。
-最后把己方半区还剩的块一个一个推到对方半区靠北墙的位置。块已经没了的情况以后再处理。
+然后从东墙边退到这一堆的南侧，往北推进对方角落。第二铲只有看到侧漏才走。
+最后把己方半区还剩的块一个一个推到对方半区靠北墙的位置。
+墙边粘成一堆的块也算目标。第二铲只有真的看到侧漏才走，没有就不空跑。
 """
 
 import math
@@ -36,23 +37,36 @@ def world_to_body(vx_w: float, vy_w: float, yaw: float) -> Tuple[float, float]:
     return c * vx_w + s * vy_w, -s * vx_w + c * vy_w
 
 
+def body_to_world(vx: float, vy: float, yaw: float) -> Tuple[float, float]:
+    c = math.cos(yaw)
+    s = math.sin(yaw)
+    return c * vx - s * vy, s * vx + c * vy
+
+
+def advance_pose(
+    pose: Tuple[float, float, float],
+    cmd: Tuple[float, float, float],
+    dt: float,
+) -> Tuple[float, float, float]:
+    """用刚发出的车体速度，把场地坐标补到下一帧视觉到来之前。"""
+    x, y, yaw = pose
+    vx, vy, wz = cmd
+    dx, dy = body_to_world(vx, vy, yaw)
+    return x + dx * dt, y + dy * dt, wrap_angle(yaw + wz * dt)
+
+
 def _opening() -> List[Goal]:
-    """对方那一排、倒回、己方那一排、再绕到东墙南侧把整堆往北推。"""
+    """对方那一排推到东墙，倒回出发列，己方那一排再推到东墙，就地退到堆的南边往北推。"""
     north = math.pi / 2
     return [
-        (-0.42, 0.04, north),
-        (-0.42, 0.05, 0.0),
+        (-0.42, 0.05, north),
         (EAST_X, 0.05, 0.0),
         (-0.42, 0.05, 0.0),
-        (-0.42, 0.05, north),
-        (-0.42, -0.05, north),
         (-0.42, -0.05, 0.0),
         (EAST_X, -0.05, 0.0),
-        (-0.15, -0.05, 0.0),
-        (-0.15, -0.05, north),
-        (-0.15, -0.46, north),
-        (0.48, -0.46, north),
-        (0.48, NORTH_Y, north),
+        (0.34, -0.05, 0.0),
+        (0.46, -0.40, north),
+        (0.46, NORTH_Y, north),
     ]
 
 
@@ -72,6 +86,7 @@ class FollowPath(Node):
 
         self.pose: Optional[Tuple[float, float, float]] = None
         self.pose_time = 0.0
+        self.tick_time = 0.0
         self.blocks: List[Point] = []
         self.goals: List[Goal] = _opening()
         self.index = 0
@@ -79,7 +94,6 @@ class FollowPath(Node):
         self.done = False
         self.lane_set = False
         self.current_x: Optional[float] = None
-        self.cleared: List[float] = []
         self.cmd = (0.0, 0.0, 0.0)
         self.target = (0.0, 0.0, 0.0)
 
@@ -115,13 +129,25 @@ class FollowPath(Node):
         if self.pose is None:
             self.pose = fresh
         else:
-            yaw = self.pose[2] + 0.65 * wrap_angle(fresh[2] - self.pose[2])
+            dx = fresh[0] - self.pose[0]
+            dy = fresh[1] - self.pose[1]
+            dyaw = wrap_angle(fresh[2] - self.pose[2])
+            # 补位已经把车推到大概的位置。视觉只修残差，避免再叠一层滞后。
+            pos_gain = 0.9 if math.hypot(dx, dy) > 0.06 else 0.65
+            yaw_gain = 0.85 if abs(dyaw) > 0.30 else 0.40
             self.pose = (
-                0.7 * fresh[0] + 0.3 * self.pose[0],
-                0.7 * fresh[1] + 0.3 * self.pose[1],
-                yaw,
+                self.pose[0] + pos_gain * dx,
+                self.pose[1] + pos_gain * dy,
+                wrap_angle(self.pose[2] + yaw_gain * dyaw),
             )
         self.pose_time = self._now()
+
+    def _predict(self, dt: float) -> None:
+        if self.pose is None or dt <= 0.0:
+            return
+        if self._now() - self.pose_time > 0.20:
+            return
+        self.pose = advance_pose(self.pose, self.cmd, min(dt, 0.10))
 
     def _on_blocks(self, msg: Float32MultiArray) -> None:
         data = list(msg.data)
@@ -132,6 +158,8 @@ class FollowPath(Node):
             self._emit(0.0, 0.0, 0.0)
             return
         now = self._now()
+        dt = 0.0 if self.tick_time <= 0.0 else min(0.10, max(0.0, now - self.tick_time))
+        self.tick_time = now
         if self.pose is None or now - self.pose_time > 0.8:
             self.target = (0.0, 0.0, 0.0)
             self._flush()
@@ -140,6 +168,7 @@ class FollowPath(Node):
             self.target = (0.0, 0.0, 0.0)
             self._flush()
             return
+        self._predict(dt)
         self._nudge()
         self._advance()
         if self.done or self.index >= len(self.goals):
@@ -175,7 +204,7 @@ class FollowPath(Node):
             gx, gy, gyaw = self.goals[self.index]
             dist = math.hypot(gx - x, gy - y)
             if dist < 0.045 and abs(wrap_angle(gyaw - yaw)) < 0.16:
-                if self.phase == "route" and self.index == 4 and not self.lane_set:
+                if self.phase == "route" and self.index == 2 and not self.lane_set:
                     self._apply_own_lane()
                 self.index += 1
                 if self.index >= len(self.goals):
@@ -192,8 +221,6 @@ class FollowPath(Node):
         elif self.phase == "pile2":
             self._begin_own()
         elif self.phase == "own":
-            if self.current_x is not None:
-                self.cleared.append(self.current_x)
             self._begin_own()
 
     def _apply_own_lane(self) -> None:
@@ -204,38 +231,40 @@ class FollowPath(Node):
             return
         ys.sort()
         lane = min(-0.02, max(-0.12, ys[len(ys) // 2]))
-        for index in (5, 6, 7, 8, 9):
+        for index in (3, 4, 5):
             gx, _gy, gyaw = self.goals[index]
             self.goals[index] = (gx, lane, gyaw)
         self.get_logger().info(f"己方这一排大约在 y={lane:.2f}，沿这一排推到东墙")
 
     def _begin_pile2(self) -> None:
-        px, py = self._half_pile()
+        aim = self._half_pile()
+        if aim is None:
+            self.get_logger().info("没有看到侧漏的半堆，不再空跑第二铲")
+            self._begin_own()
+            return
+        px, py = aim
         north = math.pi / 2
         self.phase = "pile2"
         self.current_x = px
         self.goals = [(px, py, north), (px, NORTH_Y, north)]
         self.index = 0
-        self.get_logger().info(f"第一铲可能侧漏，第二铲对准半堆 x={px:.2f}")
+        self.get_logger().info(f"第二铲对准侧漏 x={px:.2f}")
 
-    def _half_pile(self) -> Point:
-        leaked = [block for block in self.blocks if block[0] > 0.12 and block[1] < 0.32]
-        if len(leaked) < 2:
-            return 0.40, -0.18
-        xs = sorted(block[0] for block in leaked)
-        ys = sorted(block[1] for block in leaked)
+    def _half_pile(self) -> Optional[Point]:
+        """东墙边还没推到北墙的那一堆。只对准最东边的一团，不往场中空跑。"""
+        leaked = [block for block in self.blocks if block[0] > 0.12 and -0.15 < block[1] < 0.32]
+        if not leaked:
+            return None
+        east = max(block[0] for block in leaked)
+        pile = [block for block in leaked if block[0] >= east - 0.10]
+        xs = sorted(block[0] for block in pile)
+        ys = sorted(block[1] for block in pile)
         px = min(0.52, max(0.25, xs[len(xs) // 2]))
         py = min(0.0, max(-0.40, ys[0] - 0.14))
         return px, py
 
     def _own_targets(self) -> List[Point]:
-        pending = []
-        for block in self.blocks:
-            if block[1] >= -0.02:
-                continue
-            if any(abs(block[0] - done) < 0.07 for done in self.cleared):
-                continue
-            pending.append(block)
+        pending = [block for block in self.blocks if block[1] < 0.0]
         pending.sort(key=lambda block: block[0])
         return pending
 
@@ -248,6 +277,7 @@ class FollowPath(Node):
             self.get_logger().info("己方半区剩下的块已经逐个推完")
             return
         bx, by = pending[0]
+        bx = min(0.52, max(-0.52, bx))
         approach_y = min(by - 0.12, -0.22)
         approach_y = max(-0.46, approach_y)
         north = math.pi / 2
@@ -256,7 +286,6 @@ class FollowPath(Node):
         self.goals = [
             (bx, approach_y, north),
             (bx, NORTH_Y, north),
-            (bx, -0.28, north),
         ]
         self.index = 0
         self.get_logger().info(f"推己方剩余的一块 x={bx:.2f}，送到对方半区靠墙")
@@ -269,12 +298,13 @@ class FollowPath(Node):
         dist = math.hypot(dx, dy)
         yaw_err = wrap_angle(gyaw - yaw)
         speed = CRUISE
-        if dist < 0.16 and self._sharp_corner():
-            speed = max(0.18, CRUISE * dist / 0.16)
-        if abs(yaw_err) > 0.9:
+        if dist < 0.32 and self._sharp_corner():
+            speed = max(0.12, CRUISE * dist / 0.32)
+        ayaw = abs(yaw_err)
+        if ayaw > 0.85:
             speed = 0.0
-        elif abs(yaw_err) > 0.45:
-            speed *= 0.4
+        elif ayaw > 0.18:
+            speed *= max(0.25, 1.0 - (ayaw - 0.18) / 0.85)
         if dist < 1e-4:
             vx_w = vy_w = 0.0
         else:

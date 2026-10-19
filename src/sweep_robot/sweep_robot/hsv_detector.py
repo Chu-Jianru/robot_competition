@@ -22,7 +22,7 @@ from rclpy.qos import qos_profile_sensor_data
 from sensor_msgs.msg import Image
 from std_msgs.msg import Float32MultiArray, Int32
 
-from sweep_robot.field_vision import detect_field
+from sweep_robot.field_vision import FieldLock, detect_field
 
 
 class HsvDetector(Node):
@@ -43,13 +43,14 @@ class HsvDetector(Node):
         self._preview_time = 0.0
         self._held_pose = None
         self._held_time = 0.0
+        self.field_lock = FieldLock()
         if self.show_window:
             self.create_timer(0.2, self._show)
         self.get_logger().info(f"俯视检测已启动，图像来自 {topic}")
 
     def _on_image(self, msg: Image) -> None:
         frame = self.bridge.imgmsg_to_cv2(msg, desired_encoding="bgr8")
-        result = detect_field(frame)
+        result = detect_field(frame, self.field_lock)
 
         blocks = Float32MultiArray()
         flat = []
