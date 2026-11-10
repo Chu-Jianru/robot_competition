@@ -9,7 +9,7 @@
 
 `workbench/app/` 为现有免安装程序及其运行依赖；`source/` 为开发源码；`third_party_licenses/` 保留依赖许可。内部目录和文件内容整体保留。源码修改后须重新构建才会更新 EXE。
 
-`workbench/` 约 184 MB，只保留在本机，已在 `.gitignore` 排除；从仓库 clone 后没有这个目录，上面的工作台链接会失效，但 [固件工作副本](firmware/README.md) 和接线表仍在，可正常查看/烧录。需要工作台时从本机 `E:\robot_competition\hardware\workbench` 复制，或向队友索取封存包。
+`workbench/` 约 184 MB，仅保留在本机，已由 `.gitignore` 排除。仓库克隆不包含该目录，上述工作台链接在克隆中不可用；[固件工作副本](firmware/README.md) 与接线表仍保留，可正常查看和烧录。需要工作台时从本机 `E:\robot_competition\hardware\workbench` 复制，或向队友索取封存包。
 
 `source/esp32-pc-link/` 中的共享协议核心与界面模块仍被现用工程引用，不能整目录删除。交付包内的相同说明、启动脚本及发布模板是打包输入/输出，有清单约束，保留完整。
 

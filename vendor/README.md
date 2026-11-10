@@ -2,7 +2,7 @@
 
 `PushRobot-Source-20261102-WHEEL_SPEED_V1/` 是**队友**于 2026-11-02 提供的源码包，不是本项目自研代码，整体只读，不改、不并入 `hardware/workbench/source`。
 
-> `hardware/workbench/`（约 184 MB 封存工作台）只在本地运行，已在 `.gitignore` 排除；从仓库 clone 后没有这个目录，本文里它的路径只作历史对照。队友源码仍在 `vendor/`，固件工作副本在 `hardware/firmware/`。
+> `hardware/workbench/`（约 184 MB 封存工作台）仅保留在本机，已由 `.gitignore` 排除；仓库克隆不包含该目录，本文中的对应路径仅作历史对照。队友源码仍在 `vendor/`，固件工作副本在 `hardware/firmware/`。
 
 - 版本 **WHEEL_SPEED_V1**：保留开环 MECANUM_V2、FOUR_V1 接线与 CBAD 轮位，新增每轮"前馈 + PI"的轮速闭环（`motor-bringup/src/wheel_speed.h`）与标定流程。
 - 本包不带 EXE、不带 `.venv`/`.pio`、不带个人设置和标定；启动方式见包内 `README.md`（`setup_source.cmd` → `run_debug.cmd`）。
