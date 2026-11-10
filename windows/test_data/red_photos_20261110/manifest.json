@@ -1,0 +1,126 @@
+{
+  "created": "2026-11-10 15:55:00",
+  "source_dir": "E:\\robot_competition\\111",
+  "canonical": "yellow above blue",
+  "quality": 95,
+  "images": [
+    {
+      "file": "photo_001.jpg",
+      "source": "微信图片_20261110155052_278_2.jpg",
+      "source_sha256": "fa278080fea7b82bdd7878ca0c4fde74d9d1bb4b148b2f8416c9977250729068",
+      "rotation_ccw": 90,
+      "width": 1706,
+      "height": 1280
+    },
+    {
+      "file": "photo_002.jpg",
+      "source": "微信图片_20261110155052_279_2.jpg",
+      "source_sha256": "44bf7b10c09216fc78b49630e36f3dc7f569307678e75034bb163f08878a00e6",
+      "rotation_ccw": 0,
+      "width": 1706,
+      "height": 1280
+    },
+    {
+      "file": "photo_003.jpg",
+      "source": "微信图片_20261110155052_280_2.jpg",
+      "source_sha256": "1dea6a17e49970e4a41ac56ac774a8021f5b77da06a5780cdc2fc74d713d2196",
+      "rotation_ccw": 0,
+      "width": 1706,
+      "height": 1280
+    },
+    {
+      "file": "photo_004.jpg",
+      "source": "微信图片_20261110155052_281_2.jpg",
+      "source_sha256": "e3ddf7d349f8bd1661c374c582d5e257cd9d13e5d4a82a0c5c44ee5d35c67ace",
+      "rotation_ccw": 0,
+      "width": 1706,
+      "height": 1280
+    },
+    {
+      "file": "photo_005.jpg",
+      "source": "微信图片_20261110155052_282_2.jpg",
+      "source_sha256": "2a421806f4ddb63529baef2f7aa876ca24687c82718766aa693f59b7c39743a3",
+      "rotation_ccw": 0,
+      "width": 1280,
+      "height": 1706
+    },
+    {
+      "file": "photo_006.jpg",
+      "source": "微信图片_20261110155052_283_2.jpg",
+      "source_sha256": "2187e9e13fd3b9ee39505e0ab085413f2d9b67d9ef8c825caf8112644128a520",
+      "rotation_ccw": 0,
+      "width": 1280,
+      "height": 1706
+    },
+    {
+      "file": "photo_007.jpg",
+      "source": "微信图片_20261110155052_284_2.jpg",
+      "source_sha256": "11495c1e44a6800df4ab3147c766746e4487b0609dff12b14a882ca73214a59b",
+      "rotation_ccw": 270,
+      "width": 1280,
+      "height": 1706
+    },
+    {
+      "file": "photo_008.jpg",
+      "source": "微信图片_20261110155052_285_2.jpg",
+      "source_sha256": "2356e67291fcbff8d4c2f28e704fd30d668f086cc38043d91e9943f5c0631240",
+      "rotation_ccw": 270,
+      "width": 1280,
+      "height": 1706
+    },
+    {
+      "file": "photo_009.jpg",
+      "source": "微信图片_20261110155052_286_2.jpg",
+      "source_sha256": "5392ee11511b9d472ee0374ec1bb747810466dff47ae41e7d70657a04bca2400",
+      "rotation_ccw": 180,
+      "width": 1706,
+      "height": 1280
+    },
+    {
+      "file": "photo_010.jpg",
+      "source": "微信图片_20261110155052_287_2.jpg",
+      "source_sha256": "fc4199dbe5d0801cb1f0df0a271e774aae7c51151e096a89c30f36e062c686d8",
+      "rotation_ccw": 270,
+      "width": 1280,
+      "height": 1706
+    },
+    {
+      "file": "photo_011.jpg",
+      "source": "微信图片_20261110155052_288_2.jpg",
+      "source_sha256": "77cf141f54b99afdabb79d6b7f65c207ee88452c48623d57e8d5d9860a6c514e",
+      "rotation_ccw": 0,
+      "width": 1280,
+      "height": 1706
+    },
+    {
+      "file": "photo_012.jpg",
+      "source": "微信图片_20261110155052_289_2.jpg",
+      "source_sha256": "25aeff316326b713a9d6b94c8153886bf6ac20dab1eb284d8f9754b397fd1df1",
+      "rotation_ccw": 180,
+      "width": 1280,
+      "height": 1706
+    },
+    {
+      "file": "photo_013.jpg",
+      "source": "微信图片_20261110155052_290_2.jpg",
+      "source_sha256": "aeef14aa301d74d31dca07a575c81673bc432d71aad7c7583435146c07a0cf12",
+      "rotation_ccw": 90,
+      "width": 1706,
+      "height": 1280
+    },
+    {
+      "file": "photo_014.jpg",
+      "source": "微信图片_20261110155052_291_2.jpg",
+      "source_sha256": "7f91b3ba34566202f0495f063d5a73f50d61caa8f49b5a67ef429b508cbf5d92",
+      "rotation_ccw": 90,
+      "width": 1706,
+      "height": 1280
+    }
+  ],
+  "rotations": {
+    "90": 3,
+    "0": 6,
+    "270": 3,
+    "180": 2
+  }
+}

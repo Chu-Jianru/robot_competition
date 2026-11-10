@@ -1,0 +1,476 @@
+{
+  "version": "2026-11-02-WHEEL_SPEED_V1",
+  "kind": "source-only",
+  "firmware_api": "WHEEL_SPEED_V1",
+  "open_loop_api": "MECANUM_V2",
+  "pin_profile": "FOUR_V1",
+  "wheel_order": "CBAD",
+  "hardware_acceptance": "pending",
+  "files": [
+    {
+      "path": ".gitignore",
+      "bytes": 178,
+      "sha256": "fd0a3b98902cef58a1a5fe1991d35c641478d8026fb41d77295884c41fff770f"
+    },
+    {
+      "path": "README.md",
+      "bytes": 4315,
+      "sha256": "20b3a7eac3d02e93ec265bbaabebbdf2c8af3720d06f05ce284396ba7100e0fd"
+    },
+    {
+      "path": "debug-workbench/README.md",
+      "bytes": 12231,
+      "sha256": "53f2ce1687edfba9e3fd3b654203aa13801e1847aac5945e0b7233b8bbfc824a"
+    },
+    {
+      "path": "debug-workbench/TEST-REPORT.md",
+      "bytes": 15142,
+      "sha256": "6c1230ceb1e80fd78616bae422707d3eb239e0297ccf1f7896399c07bb8bde6c"
+    },
+    {
+      "path": "debug-workbench/bench_app.py",
+      "bytes": 37400,
+      "sha256": "c2126fbda29ff4d0965e0e261834329fea70c87a7cc78911f30b1565d1d4412e"
+    },
+    {
+      "path": "debug-workbench/bench_model.py",
+      "bytes": 10197,
+      "sha256": "201563fed25c917d876048b77a0fd6e51094097993628e9bbc17ffdcd429ce45"
+    },
+    {
+      "path": "debug-workbench/camera_view.py",
+      "bytes": 9606,
+      "sha256": "29412941e2ca67dd41430ed7a0b16189ed602cba22b249d3d888a9cfa3fc14a6"
+    },
+    {
+      "path": "debug-workbench/chassis_app.py",
+      "bytes": 43298,
+      "sha256": "084b5c55af9831acee12b7c8a2469b8616786b82d152d62fd9b23e05baca8bb8"
+    },
+    {
+      "path": "debug-workbench/main.py",
+      "bytes": 8252,
+      "sha256": "e507ab2f3aa28231370b4bf87678b2a1aa7aacb1b2e62f2e0f47495980304519"
+    },
+    {
+      "path": "debug-workbench/tests/test_chassis_ui.py",
+      "bytes": 20720,
+      "sha256": "5b580307b1ed09ae9bc3248693e37f66f26ee524ac59d3482a08fcf76254f659"
+    },
+    {
+      "path": "debug-workbench/tests/test_model.py",
+      "bytes": 6518,
+      "sha256": "29178d88a87c8de4f98eaf8dd401be9ec02492267c796ebb2547508b011b460e"
+    },
+    {
+      "path": "debug-workbench/tests/test_runtime_paths.py",
+      "bytes": 1909,
+      "sha256": "38d902d2c0401f9a733431d27cb3e45627d1f62552240c06f71ccb057970cc9e"
+    },
+    {
+      "path": "debug-workbench/tests/test_workspace.py",
+      "bytes": 10757,
+      "sha256": "f3c65a201dea3c22323e4f107e167c8409cf1c5ff7aefbec3a922fd6f5a11836"
+    },
+    {
+      "path": "debug-workbench/tests/verify_chassis_device.py",
+      "bytes": 5344,
+      "sha256": "6841b4b353a29a8a74fe03c149228018a8e898b507089008e3f913b915f3123d"
+    },
+    {
+      "path": "debug-workbench/tests/verify_unified_device.py",
+      "bytes": 8918,
+      "sha256": "018d59023c633ed5235445e23ff0479c1a028ab56ad8ed65bf8ced9fb6866ab2"
+    },
+    {
+      "path": "docs/superpowers/plans/2026-10-31-mecanum-wheel-speed-closed-loop.md",
+      "bytes": 41097,
+      "sha256": "cf87534c110211eafa97fae10cdb2bfc3ae85d86dc7539498741058d17738f29"
+    },
+    {
+      "path": "docs/superpowers/specs/2026-10-31-mecanum-wheel-speed-closed-loop-design.md",
+      "bytes": 29424,
+      "sha256": "4c036909e493e76fe8bea77ef93d6ff53bf00b10d4568c31e4b299b3e0e058ff"
+    },
+    {
+      "path": "docs/整理记录/源码审查与分享说明-2026-11-02.md",
+      "bytes": 4707,
+      "sha256": "0512eacbbc870709a70c43a487b32d6b6536c3eec8cc689b32c1690c0cb058b6"
+    },
+    {
+      "path": "environment-snapshot.json",
+      "bytes": 284,
+      "sha256": "b94f06d0002dbe4d3c979c075ea887d78c3250dd8de3e1917c1dbd8781b0fcbc"
+    },
+    {
+      "path": "esp32-connection-test/README.md",
+      "bytes": 1634,
+      "sha256": "630d5f4675d54a5ce2a438acfbf6bf8cc749abcfd83977ec990200dd0d2d572e"
+    },
+    {
+      "path": "esp32-connection-test/platformio.ini",
+      "bytes": 160,
+      "sha256": "8365feab5e9a1124465a23c7b33f97e6dbb10712d34d95ca7b394fb5c8e53648"
+    },
+    {
+      "path": "esp32-connection-test/src/main.cpp",
+      "bytes": 753,
+      "sha256": "00d1e7ae348899f0f5d81659847216710e5906198ed636d5ddd349ef404fcec9"
+    },
+    {
+      "path": "esp32-pc-link/README.md",
+      "bytes": 18018,
+      "sha256": "8099f2dc16288956a0b20b6dde1921bf03eb86b56860720335275f91073fd82a"
+    },
+    {
+      "path": "esp32-pc-link/TEST-REPORT.md",
+      "bytes": 10112,
+      "sha256": "3b2175d0da874b8e6a14db0bf1a74415b609162bcd1ea976433ff6d7add66642"
+    },
+    {
+      "path": "esp32-pc-link/host-tests/run_tests.ps1",
+      "bytes": 350,
+      "sha256": "b036141457853f765d429489edf0efb4124101e5f2995390ac785e291b67c4b5"
+    },
+    {
+      "path": "esp32-pc-link/host-tests/run_tests.sh",
+      "bytes": 241,
+      "sha256": "cac548bfda0c0d17aae3c39d6c020c6eb3b1f9b11030e16bf3c2311120792abd"
+    },
+    {
+      "path": "esp32-pc-link/host-tests/test_link_core.cpp",
+      "bytes": 12788,
+      "sha256": "4fdc5b0197308d70dbb605066ab00b62117b130cbea31ffdb6b1b61d1364727c"
+    },
+    {
+      "path": "esp32-pc-link/lib/link_core/library.json",
+      "bytes": 160,
+      "sha256": "5f51d86f9b3360d317c2cfc9909ea37197422d206a81544c30ad809615b28222"
+    },
+    {
+      "path": "esp32-pc-link/lib/link_core/link_core.cpp",
+      "bytes": 14189,
+      "sha256": "4c537fa911c803b0e37ffe68d3117e7e6b83cb4425e372a4b2f8c65cbf983c57"
+    },
+    {
+      "path": "esp32-pc-link/lib/link_core/link_core.h",
+      "bytes": 2925,
+      "sha256": "39266692103010f16dea27fd338e5c70a8302a152d0e4f55550f7a1bf6e415b0"
+    },
+    {
+      "path": "esp32-pc-link/pc/camera_config.json",
+      "bytes": 73,
+      "sha256": "66b372c06342ed404332d8e3bd11408d681ca859bc546624902c22d1f2d0c6ea"
+    },
+    {
+      "path": "esp32-pc-link/pc/camera_preview.py",
+      "bytes": 10511,
+      "sha256": "62bb88c6d4ff1e43a82e262ab57e60dbe7847d0bd649cd8d8c124fb666610b2d"
+    },
+    {
+      "path": "esp32-pc-link/pc/camera_source.py",
+      "bytes": 3236,
+      "sha256": "559aac225bf69c201c6ec93789ef759d7306866549ada1b674e40b4f7f74c25d"
+    },
+    {
+      "path": "esp32-pc-link/pc/link_client.py",
+      "bytes": 36009,
+      "sha256": "a02faedfe165f0561c90026cf76303c6e46cc496072e203fc877f3f8ccf46efb"
+    },
+    {
+      "path": "esp32-pc-link/pc/link_smoke_test.py",
+      "bytes": 20427,
+      "sha256": "9621e844a7c4c93f2b7a9a295f3c2bd8f94f64c1e1358129d8059dabd70bfa6c"
+    },
+    {
+      "path": "esp32-pc-link/pc/panel.py",
+      "bytes": 32871,
+      "sha256": "9e454cd896d2e04ad83b38e6a7bb76c1623b907c610c58c7c588a5810e307a1b"
+    },
+    {
+      "path": "esp32-pc-link/pc/panel_camera.py",
+      "bytes": 10635,
+      "sha256": "2444014afa54e311588e1cc127785527c8793e2f209e191585a416aab4f113c6"
+    },
+    {
+      "path": "esp32-pc-link/pc/panel_view.py",
+      "bytes": 12835,
+      "sha256": "5ac4b49512c1dc970a418dd6dd3b242897a315d3cbce720bd927f5fd17661e37"
+    },
+    {
+      "path": "esp32-pc-link/pc/requirements.txt",
+      "bytes": 70,
+      "sha256": "567f5faa86fa5cda6ad5b3de8475e10f7977d080e3adc3241027dda5dd01bf69"
+    },
+    {
+      "path": "esp32-pc-link/pc/run_camera.cmd",
+      "bytes": 197,
+      "sha256": "bd1bf31553bd7d4ad4a770c60fbc608eb7b2b23e4896e6a7803e9c5e433b09f3"
+    },
+    {
+      "path": "esp32-pc-link/pc/run_smoke_test.cmd",
+      "bytes": 198,
+      "sha256": "369b495569dc647ccec858794a0efb083c48bd2b600ba1d9342f31f7bd051636"
+    },
+    {
+      "path": "esp32-pc-link/pc/run_smoke_test.ps1",
+      "bytes": 425,
+      "sha256": "3f6657e6db0bc3d30fd43aceaf106028c3f3f1f67f4f963f9525602fc8bc52b9"
+    },
+    {
+      "path": "esp32-pc-link/pc/run_tests.cmd",
+      "bytes": 235,
+      "sha256": "f511fb372682202ac7df0479716b1711464ccdd8a3b6978b9aaf2444bf7f882b"
+    },
+    {
+      "path": "esp32-pc-link/pc/run_tests.ps1",
+      "bytes": 266,
+      "sha256": "9d5a2785c0c27a41b08299ddb9a699512d6f0eec63cd3a1f778859b2acc1b30a"
+    },
+    {
+      "path": "esp32-pc-link/pc/runtime_paths.py",
+      "bytes": 1083,
+      "sha256": "8aa71b882dc8717f4d8faeb8f7e91b7143d0e526980622c897bdfdfdb5b8613f"
+    },
+    {
+      "path": "esp32-pc-link/pc/setup.cmd",
+      "bytes": 109,
+      "sha256": "28f7aaca3833989af319d511be9d4964157ed2f0eea2480896232f396376a300"
+    },
+    {
+      "path": "esp32-pc-link/pc/setup.ps1",
+      "bytes": 1180,
+      "sha256": "650f4203ea8a4a4710847c11ce782e4ce494428ce92ed6fd2d7fd2a0fa08dac2"
+    },
+    {
+      "path": "esp32-pc-link/pc/tests/test_link_client.py",
+      "bytes": 25574,
+      "sha256": "dd4828b839d80b198d26a5d0e32bd464340b4c99e8f6c58ed773eaa309e6d9b5"
+    },
+    {
+      "path": "esp32-pc-link/pc/tests/test_panel_view.py",
+      "bytes": 4809,
+      "sha256": "b8db8adf5879a06b274bca71eea077c659103dfda1d23865c2d2aa6cfa558626"
+    },
+    {
+      "path": "esp32-pc-link/pc/ui_theme.py",
+      "bytes": 8431,
+      "sha256": "8f136468e646bc2f06616322766534fdcd453b5e7346f74c54ffeb45369349cd"
+    },
+    {
+      "path": "esp32-pc-link/platformio.ini",
+      "bytes": 262,
+      "sha256": "d5860416310ff46ad0c7823774391084bc3b47d8623ef2000c346f1ae66cd5e6"
+    },
+    {
+      "path": "esp32-pc-link/src/main.cpp",
+      "bytes": 1206,
+      "sha256": "c499cf1fd3d70912dbcdfc4f14f902b922793ccb52cf0957b6ffaa9f6f5c321d"
+    },
+    {
+      "path": "motor-bringup/BLUETOOTH-TEST-REPORT.md",
+      "bytes": 2390,
+      "sha256": "57243803ec9a1f86e6c44128950ad055d0835f811117cbc9d82d798f395fc905"
+    },
+    {
+      "path": "motor-bringup/BLUETOOTH.md",
+      "bytes": 4244,
+      "sha256": "5bf7dbe720bc913e10d77c3dfecb72f829b819e2b6baaedd6c8bc2cc9fae872f"
+    },
+    {
+      "path": "motor-bringup/CLOSED-LOOP-VERIFICATION.md",
+      "bytes": 30988,
+      "sha256": "f575ce865bef9c30c15abb44643102a91cc3a1e1d1d8c66f4067bf1320922a47"
+    },
+    {
+      "path": "motor-bringup/DEBUGGING.md",
+      "bytes": 9672,
+      "sha256": "01e6b4c436059e0c1adf44e3c3800423df093ac8a1264dbfd950294c035af836"
+    },
+    {
+      "path": "motor-bringup/FOUR-MOTOR-WIRING.md",
+      "bytes": 3654,
+      "sha256": "3613beeb21897ca3d418ad1679d8676d195f7cb80a6ddecedfc88e6382eb5b65"
+    },
+    {
+      "path": "motor-bringup/MECANUM.md",
+      "bytes": 17324,
+      "sha256": "dfc651d8b58e2d32973765ab448244ee190d998cc1d6951732fdb619a190b4b2"
+    },
+    {
+      "path": "motor-bringup/README.md",
+      "bytes": 9708,
+      "sha256": "b16c77b460bd2e4c29d8d8d32484254f714337ec99f99e86ce8fc0bec9ed2fed"
+    },
+    {
+      "path": "motor-bringup/TEST-REPORT.md",
+      "bytes": 6928,
+      "sha256": "49eac3afd17e48282be1eeffe56e8d8aa292e5b40fa758c49cfced5bb67960cf"
+    },
+    {
+      "path": "motor-bringup/chassis_link.py",
+      "bytes": 13696,
+      "sha256": "db1cccecb3e338db9de29d1612cfb50041c9f77c18adfee8c410853bd2582781"
+    },
+    {
+      "path": "motor-bringup/motor_link.py",
+      "bytes": 13724,
+      "sha256": "7df737ca40a716128d9e7173605ae76852f3813da534ae8eaab4ec88e55b1f2d"
+    },
+    {
+      "path": "motor-bringup/platformio.ini",
+      "bytes": 176,
+      "sha256": "e00e5be6dee06bca5f9364c5fff06efd0c283c830d315121a4ae6da3c0308737"
+    },
+    {
+      "path": "motor-bringup/src/calibration.h",
+      "bytes": 2037,
+      "sha256": "abe2b80fa9a58a5ac9d1d65bd1b215634907c2f154dcc7bf33877651b78fa9a8"
+    },
+    {
+      "path": "motor-bringup/src/config_store.h",
+      "bytes": 7745,
+      "sha256": "a569be35b2e79f220d86b1525fc5da97a5ba840d8a8f9b1be8eaa67ed80f41f9"
+    },
+    {
+      "path": "motor-bringup/src/dry_core.cpp",
+      "bytes": 216,
+      "sha256": "05dca296a0fe2746fbd9a6f845d2644cbc2aee19c0d166a688c6869e2a306a48"
+    },
+    {
+      "path": "motor-bringup/src/main.cpp",
+      "bytes": 55202,
+      "sha256": "a2a4dfcab547cc0cf7759c2ca795b5ed2894e7ecd044889e0fa9488604f52207"
+    },
+    {
+      "path": "motor-bringup/src/mecanum.h",
+      "bytes": 1404,
+      "sha256": "2aade195112fa29e18447de3643e7a004dd89301c7a01d61f2e5f037c2640f5f"
+    },
+    {
+      "path": "motor-bringup/src/motor_profile.h",
+      "bytes": 626,
+      "sha256": "156aa9b22ec9110768bb04eb512f1f85de6767fe051255fcbc46296957f95ff1"
+    },
+    {
+      "path": "motor-bringup/src/wheel_speed.h",
+      "bytes": 10441,
+      "sha256": "da8f70417bafdcacfdf884c52ec3a250a1e50b1f650ee917707f688084a5c5db"
+    },
+    {
+      "path": "motor-bringup/src/wireless.h",
+      "bytes": 4115,
+      "sha256": "9cfebd17d525ca91397bd15215fd7731fad714dd9065ab2886594e4a493117cc"
+    },
+    {
+      "path": "motor-bringup/tests/Arduino.h",
+      "bytes": 2359,
+      "sha256": "2928c2931f9862a3391fe495edf8efd3e77e26d931fbdce86ae1c9269bc752cf"
+    },
+    {
+      "path": "motor-bringup/tests/BluetoothSerial.h",
+      "bytes": 815,
+      "sha256": "9f07b44726a235224c653d75fac09c4e59fd38e78f871e322ce1ee28a8532976"
+    },
+    {
+      "path": "motor-bringup/tests/Preferences.h",
+      "bytes": 5631,
+      "sha256": "af70ab70e9146013087b78fc991f9d3fb2e82cda6371c4f2632ed5ced3e6b020"
+    },
+    {
+      "path": "motor-bringup/tests/esp_random.h",
+      "bytes": 170,
+      "sha256": "c20235cc2ed75302f44bc2ddb4a927c006e057ed93ff6c94e54498b3b98acb7c"
+    },
+    {
+      "path": "motor-bringup/tests/test_bluetooth.cpp",
+      "bytes": 5314,
+      "sha256": "5527ff5cf0b3cfc8ebc133ac4e05bc0a23e8ce9855bcccccc6af8be2bd5fec71"
+    },
+    {
+      "path": "motor-bringup/tests/test_calibration.cpp",
+      "bytes": 881,
+      "sha256": "0548d31eb644d115766e2d69b978c0fd10630236f8fa575e788e4e9e275095a7"
+    },
+    {
+      "path": "motor-bringup/tests/test_chassis.cpp",
+      "bytes": 6874,
+      "sha256": "0cddab8651c68a3dacf0f3cbbeeff551ffe20bc7ca00f1e76aa9c98c5e66ac5d"
+    },
+    {
+      "path": "motor-bringup/tests/test_chassis_link.py",
+      "bytes": 19042,
+      "sha256": "95760cc1a04da5bf1c1c2b43ec604e1cb40173de2ea9f440a63bf2e5904e0e72"
+    },
+    {
+      "path": "motor-bringup/tests/test_closed_loop.cpp",
+      "bytes": 60717,
+      "sha256": "c7022010716be78302ea8dd56e419619e6d1c190aceab9663f075e04aeede7dd"
+    },
+    {
+      "path": "motor-bringup/tests/test_config_store.cpp",
+      "bytes": 9551,
+      "sha256": "1693f322e60bfb11fb6075b1345f7311775b688b35fda59445a98fd838fd9081"
+    },
+    {
+      "path": "motor-bringup/tests/test_motor.cpp",
+      "bytes": 9248,
+      "sha256": "6eb268f6e2e3599fc30dd1eb5a97f253bf15b0cdc9e363a4e007b3abfe9afe69"
+    },
+    {
+      "path": "motor-bringup/tests/test_motor_link.py",
+      "bytes": 12849,
+      "sha256": "91e05304ea7104a73a2a6155e65b839b428d80f6eb6aadcde345471437244e30"
+    },
+    {
+      "path": "motor-bringup/tests/test_wheel_speed.cpp",
+      "bytes": 8175,
+      "sha256": "55909d12e51b15d7cb3143df008fee2a5b63aa71dc6b9cd0aff12e7c607d9684"
+    },
+    {
+      "path": "release_tools/SOURCE_README.md",
+      "bytes": 4315,
+      "sha256": "20b3a7eac3d02e93ec265bbaabebbdf2c8af3720d06f05ce284396ba7100e0fd"
+    },
+    {
+      "path": "release_tools/build_source.py",
+      "bytes": 7005,
+      "sha256": "35119e48067c20f2bb4e4b7f896453993f1b8f44ef15eb435417b24cfe1b90a9"
+    },
+    {
+      "path": "release_tools/run_checks.py",
+      "bytes": 2914,
+      "sha256": "d11c87eb30b40c7770cbebc69c1617836560c8ecd1d2013320cb1e34f8f9e161"
+    },
+    {
+      "path": "release_tools/setup_source.ps1",
+      "bytes": 1919,
+      "sha256": "137c5aa4c2585b5ddf6d6df82ab6dc780394b9dca47a7ee21aed2eaf24fa4433"
+    },
+    {
+      "path": "release_tools/vendor-licenses/SOURCES.txt",
+      "bytes": 194,
+      "sha256": "52c7019b8bf194879535511564a138f0e65383055f2c9224232b53fc994f7ddc"
+    },
+    {
+      "path": "release_tools/vendor-licenses/pyserial-LICENSE.txt",
+      "bytes": 1885,
+      "sha256": "f91cb9813de6a5b142b8f7f2dede630b5134160aedaeaf55f4d6a7e2593ca3f3"
+    },
+    {
+      "path": "run_checks.cmd",
+      "bytes": 152,
+      "sha256": "6804eb1d3f8a120de5fc28415296971ef280f8aac324bda82fd9c7d21c844c78"
+    },
+    {
+      "path": "run_debug.cmd",
+      "bytes": 261,
+      "sha256": "3de529b53e09992d269dba288715a25e5e9d4c3816715c397026aba75b210934"
+    },
+    {
+      "path": "setup_source.cmd",
+      "bytes": 135,
+      "sha256": "925eb81d7c80d1ba105346932895aa876347a7ca96ce747a9bb679359c803397"
+    }
+  ]
+}

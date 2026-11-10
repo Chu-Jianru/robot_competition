@@ -1,0 +1,11 @@
+.venv/
+.pio/
+__pycache__/
+*.pyc
+*.exe
+tmp/
+output/
+debug-workbench/settings.json
+debug-workbench/records/
+esp32-pc-link/pc/camera_config.json
+esp32-pc-link/pc/smoke_results.json

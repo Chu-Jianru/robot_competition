@@ -1,0 +1,86 @@
+{
+  "photo_001.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_001.jpg",
+    "merged": "2026-11-10 16:38:19"
+  },
+  "photo_002.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_002.jpg",
+    "merged": "2026-11-10 16:38:19"
+  },
+  "photo_003.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_003.jpg",
+    "merged": "2026-11-10 16:38:19"
+  },
+  "photo_004.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_004.jpg",
+    "merged": "2026-11-10 16:38:19"
+  },
+  "photo_005.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_005.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_006.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_006.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_007.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_007.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_008.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_008.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_009.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_009.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_010.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_010.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_011.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_011.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_012.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_012.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_013.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_013.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "photo_014.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\red_photos_20261110\\frames\\photo_014.jpg",
+    "merged": "2026-11-10 16:38:20"
+  },
+  "phone_001.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\phone_tag_blocks\\phone_tag_block_01.jpg",
+    "merged": "2026-11-10 16:41:40"
+  },
+  "phone_002.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\phone_tag_blocks\\phone_tag_block_02.jpg",
+    "merged": "2026-11-10 16:41:40"
+  },
+  "phone_003.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\phone_tag_blocks\\phone_tag_block_03.jpg",
+    "merged": "2026-11-10 16:41:40"
+  },
+  "phone_004.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\phone_tag_blocks\\phone_tag_block_04.jpg",
+    "merged": "2026-11-10 16:41:40"
+  },
+  "phone_005.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\phone_tag_blocks\\phone_tag_block_05.jpg",
+    "merged": "2026-11-10 16:41:40"
+  },
+  "phone_006.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\phone_tag_blocks\\phone_tag_block_06.jpg",
+    "merged": "2026-11-10 16:41:40"
+  },
+  "phone_007.jpg": {
+    "from": "E:\\robot_competition\\windows\\test_data\\phone_tag_blocks\\phone_tag_block_07.jpg",
+    "merged": "2026-11-10 16:41:40"
+  }
+}

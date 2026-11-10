@@ -1,0 +1,20 @@
+{
+  "low_hue": [
+    0,
+    10
+  ],
+  "high_hue": [
+    170,
+    180
+  ],
+  "min_saturation": 86,
+  "max_saturation": 247,
+  "min_value": 103,
+  "min_area_px": 16.400000000000002,
+  "shape_filter": true,
+  "min_aspect_ratio": 0.65,
+  "min_rectangularity": 0.72,
+  "min_solidity": 0.8,
+  "close_gaps": true,
+  "shadow_min_value": 40
+}

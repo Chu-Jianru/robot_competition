@@ -1,0 +1,8 @@
+{
+  "name": "link_core",
+  "version": "0.1.0",
+  "description": "Pure C++ DRY_RUN protocol state machine; no GPIO access",
+  "build": {
+    "srcDir": "."
+  }
+}

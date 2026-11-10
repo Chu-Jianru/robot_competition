@@ -1,6 +1,13 @@
 import math
 import random
+import argparse
 from pathlib import Path
+
+parser = argparse.ArgumentParser(description='生成比赛模型，以及可选的鲁棒性测试场景')
+parser.add_argument('--seed', type=int, default=20260922)
+parser.add_argument('--output-dir', type=Path)
+parser.add_argument('--opponent', choices=('none', 'block', 'cross', 'return'), default='none')
+args = parser.parse_args()
 
 s = ['''<?xml version="1.0"?>
 <sdf version="1.6">
@@ -134,13 +141,14 @@ for name, x, y in (
     side = 1.0 if y > 0 else -1.0
     add_box(f"{name}_axle", x, side * 0.041, 0.016, 0.006, 0.022, 0.006, "0.55 0.55 0.58 1", 0.02, 0.0)
 
-# 前滚刷和中间的轴是同一刚体。轴只显示，不单独碰撞。
-add_cylinder("brush", 0.064, 0, 0.016, 0.012, 0.100, "0.05 0.35 0.12 1", 0.16, 0.4, axle_roll)
-add_cylinder("brush_shaft", 0.064, 0, 0.016, 0.004, 0.122, "0.55 0.55 0.58 1", 0.0, 0.0, axle_roll, collide=False)
+# 前滚刷必须比车轮宽，沿墙前进时由前挡板先接住块，不能让侧轮先蹭到。
+add_cylinder("brush", 0.064, 0, 0.016, 0.012, 0.140, "0.05 0.35 0.12 1", 0.16, 0.4, axle_roll)
+add_cylinder("brush_shaft", 0.064, 0, 0.016, 0.004, 0.152, "0.55 0.55 0.58 1", 0.0, 0.0, axle_roll, collide=False)
 
-# 两侧薄板套在刷轴两端。前端更靠近墙，往前走时把墙边的块拨向中间。
-add_box("plate_left", 0.064, 0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, 0.2, yaw=0.26)
-add_box("plate_right", 0.064, -0.057, 0.016, 0.016, 0.004, 0.016, "0.12 0.12 0.12 1", 0.04, 0.2, yaw=-0.26)
+# 两侧是前挡板的一部分，做成长漏斗：入口宽、靠车一端窄。
+# 墙边块会在到达前轮侧面之前被斜面逐步导回滚刷。
+add_box("plate_left", 0.050, 0.062, 0.016, 0.080, 0.006, 0.016, "0.12 0.12 0.12 1", 0.04, 0.2, yaw=0.42)
+add_box("plate_right", 0.050, -0.062, 0.016, 0.080, 0.006, 0.016, "0.12 0.12 0.12 1", 0.04, 0.2, yaw=-0.42)
 
 # 四角色块压进顶板 0.5mm，贴在车顶上。前品红，后青色。
 roof_top = 0.053
@@ -273,14 +281,18 @@ def block_models(poses) -> str:
         <collision name="collision">
           <geometry><box><size>{side} {side} {side}</size></box></geometry>
           <surface>
+            <bounce>
+              <restitution_coefficient>0</restitution_coefficient>
+              <threshold>100</threshold>
+            </bounce>
             <friction>
-              <ode><mu>0.9</mu><mu2>0.9</mu2></ode>
+              <ode><mu>0.3</mu><mu2>0.3</mu2></ode>
             </friction>
             <contact>
               <ode>
-                <kp>2.0e4</kp>
-                <kd>20</kd>
-                <max_vel>0.2</max_vel>
+                <kp>5.0e4</kp>
+                <kd>80</kd>
+                <max_vel>0.1</max_vel>
                 <min_depth>0.001</min_depth>
               </ode>
             </contact>
@@ -306,6 +318,7 @@ CAMERA_XML = '''
       <static>true</static>
       <link name="link">
         <sensor type="camera" name="camera">
+          <always_on>true</always_on>
           <update_rate>10</update_rate>
           <visualize>false</visualize>
           <camera>
@@ -338,11 +351,13 @@ CAMERA_XML = '''
 '''
 
 
-block_poses = block_layout()
+block_poses = block_layout(args.seed)
 _check_blocks(block_poses)
 start_x = min(x for x, y, _yaw in block_poses if y < 0)
 model_xml = model_xml.replace("STARTX", f"{start_x:.4f}")
-out = Path(__file__).with_name("model.sdf")
+if args.output_dir:
+    args.output_dir.mkdir(parents=True, exist_ok=True)
+out = args.output_dir / 'model.sdf' if args.output_dir else Path(__file__).with_name("model.sdf")
 out.write_bytes(model_xml.replace("\r\n", "\n").encode("utf-8"))
 print(f"Robot model generated successfully: {out}  start x={start_x:.4f}")
 
@@ -350,6 +365,29 @@ start = model_xml.find("<model")
 end = model_xml.rfind("</model>") + len("</model>")
 model_body = model_xml[start:end]
 blocks_xml = block_models(block_poses)
+opponent_xml = ''
+if args.opponent != 'none':
+    # 仅 --opponent 显式启用；正式默认场地保持单车。
+    ox, oy = (0.30, 0.02) if args.opponent == 'block' else (0.0, 0.32)
+    opponent_xml = f'''
+    <model name="test_opponent">
+      <pose>{ox} {oy} 0.030 0 0 -1.57079632679</pose>
+      <allow_auto_disable>false</allow_auto_disable>
+      <link name="base_link">
+        <inertial><mass>3.0</mass><inertia><ixx>0.003</ixx><iyy>0.003</iyy><izz>0.006</izz></inertia></inertial>
+        <collision name="body"><geometry><box><size>0.12 0.10 0.06</size></box></geometry>
+          <surface><friction><ode><mu>0</mu><mu2>0</mu2></ode></friction></surface>
+        </collision>
+        <visual name="body"><geometry><box><size>0.12 0.10 0.06</size></box></geometry>
+          <material><ambient>0.3 0.3 0.3 1</ambient><diffuse>0.3 0.3 0.3 1</diffuse></material>
+        </visual>
+      </link>
+      <plugin name="opponent_drive" filename="libgazebo_ros_planar_move.so">
+        <ros><namespace>opponent</namespace></ros><publish_rate>20</publish_rate>
+        <publish_odom>true</publish_odom><publish_odom_tf>false</publish_odom_tf>
+      </plugin>
+    </model>
+    '''
 
 world_xml = f'''<?xml version="1.0"?>
 <sdf version="1.6">
@@ -533,12 +571,14 @@ world_xml = f'''<?xml version="1.0"?>
 
 {blocks_xml}
 
+{opponent_xml}
+
 {CAMERA_XML}
 
   </world>
 </sdf>
 '''
 
-world_path = Path(__file__).resolve().parents[2] / "worlds" / "competition.world"
+world_path = args.output_dir / 'competition.world' if args.output_dir else Path(__file__).resolve().parents[2] / "worlds" / "competition.world"
 world_path.write_bytes(world_xml.replace("\r\n", "\n").encode("utf-8"))
 print(f"World generated successfully: {world_path}")

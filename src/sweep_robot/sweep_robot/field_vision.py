@@ -38,7 +38,7 @@ def _centroid(mask: np.ndarray) -> Optional[np.ndarray]:
 
 
 def _field_quad(field_mask: np.ndarray) -> Optional[np.ndarray]:
-    contours, _ = cv2.findContours(field_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    contours, _ = cv2.findContours(field_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
     if not contours:
         return None
     contour = max(contours, key=cv2.contourArea)
@@ -50,9 +50,41 @@ def _field_quad(field_mask: np.ndarray) -> Optional[np.ndarray]:
     for ratio in (0.01, 0.02, 0.035, 0.05, 0.08):
         approx = cv2.approxPolyDP(hull, ratio * peri, True)
         if len(approx) == 4:
-            return approx.reshape(4, 2).astype(np.float32)
+            return _fit_field_edges(contour, approx.reshape(4, 2).astype(np.float32))
     rect = cv2.minAreaRect(hull)
     return cv2.boxPoints(rect).astype(np.float32)
+
+
+def _fit_field_edges(contour: np.ndarray, quad: np.ndarray) -> np.ndarray:
+    """由每条边中段的地面轮廓拟合直线，外推被车/块遮住的角。"""
+    points = contour.reshape(-1, 2).astype(np.float32)
+    lines = []
+    for a, b in zip(quad, np.roll(quad, -1, axis=0)):
+        edge = b - a
+        length = float(np.linalg.norm(edge))
+        if length < 20:
+            return quad
+        direction = edge / length
+        rel = points - a
+        along = rel @ direction
+        distance = np.abs(rel[:, 0] * direction[1] - rel[:, 1] * direction[0])
+        selected = points[(along > 0.15 * length) & (along < 0.85 * length) & (distance < max(5, 0.08 * length))]
+        if len(selected) < 12:
+            return quad
+        vx, vy, x, y = cv2.fitLine(selected, cv2.DIST_WELSCH, 0, 0.01, 0.01).reshape(-1)
+        lines.append((np.array([x, y]), np.array([vx, vy])))
+    fitted = []
+    for i in range(4):
+        a, u = lines[i - 1]
+        b, v = lines[i]
+        matrix = np.column_stack((u, -v))
+        if abs(float(np.linalg.det(matrix))) < 0.2:
+            return quad
+        fitted.append(a + np.linalg.solve(matrix, b - a)[0] * u)
+    fitted = np.float32(fitted)
+    if np.max(np.linalg.norm(fitted - quad, axis=1)) > 0.18 * np.sqrt(cv2.contourArea(quad)):
+        return quad
+    return fitted
 
 
 def _axes_from_colors(blue_xy: np.ndarray, yellow_xy: np.ndarray) -> Optional[Tuple[np.ndarray, np.ndarray]]:
@@ -132,6 +164,10 @@ def _blobs(
                 "xy": (float(center[0]), float(center[1])),
                 "px": (float(px), float(py)),
                 "side": long,
+                "half": (
+                    float(np.max(world_box[:, 0]) - np.min(world_box[:, 0])) / 2.0,
+                    float(np.max(world_box[:, 1]) - np.min(world_box[:, 1])) / 2.0,
+                ),
             }
         )
     return found
@@ -139,6 +175,13 @@ def _blobs(
 
 def _boundary_y(blue: np.ndarray, yellow: np.ndarray, homography: np.ndarray) -> float:
     """蓝黄分界在当前单应性坐标里的 y。四边形几何中心不一定落在这条线上。"""
+    # 直接采样实际相邻的蓝黄地面，避免整片地面的分位数随遮挡面积漂移。
+    kernel = np.ones((5, 5), np.uint8)
+    seam = cv2.bitwise_and(cv2.dilate(blue, kernel), cv2.dilate(yellow, kernel))
+    yy, xx = np.where(seam > 0)
+    if len(xx) >= 30:
+        sample = np.column_stack((xx[::3], yy[::3])).astype(np.float32)
+        return float(np.median(image_to_world(homography, sample)[:, 1]))
     step = 6
     blue_s = blue[::step, ::step] > 0
     yellow_s = yellow[::step, ::step] > 0
@@ -185,6 +228,7 @@ class FieldLock:
     def __init__(self) -> None:
         self.corners: Optional[np.ndarray] = None
         self.corner_rejects = 0
+        self.reference: Optional[np.ndarray] = None
         self.bias: Optional[float] = None
         self.bias_rejects = 0
 
@@ -192,13 +236,19 @@ class FieldLock:
         measured = np.asarray(measured, dtype=np.float32).reshape(4, 2)
         if self.corners is None:
             self.corners = measured.copy()
+            self.reference = measured.copy()
             return measured.copy()
+        # 单角长期被遮挡不是相机搬动，不能过几帧就接受一个歪掉的场地。
+        shifted = np.linalg.norm(measured - self.reference, axis=1) > 4.0
+        if 0 < int(shifted.sum()) < 3:
+            return self.corners.copy()
         jump = float(np.max(np.linalg.norm(measured - self.corners, axis=1)))
         if jump > 18.0:
             self.corner_rejects += 1
             if self.corner_rejects < 6:
                 return self.corners.copy()
             self.corners = measured.copy()
+            self.reference = measured.copy()
             self.corner_rejects = 0
             return measured.copy()
         self.corner_rejects = 0
@@ -234,6 +284,7 @@ def detect_field(bgr: np.ndarray, lock: Optional[FieldLock] = None) -> Dict:
         "field_px": None,
         "block_px": [],
         "robot_px": None,
+        "obstacle_extents": [],
     }
     if bgr is None or bgr.size == 0:
         return empty
@@ -317,12 +368,13 @@ def detect_field(bgr: np.ndarray, lock: Optional[FieldLock] = None) -> Dict:
         )
 
     own_count = sum(1 for block in blocks if block.get("own"))
-    robot_xy = None if robot is None else (robot[0], robot[1])
-    obstacles = _obstacles(hsv, homography, src, bias, robot_xy)
+    obstacles, obstacle_extents = _obstacles(hsv, homography, src, bias, robot)
     return {
         "blocks": [block["xy"] for block in blocks],
+        "extents": [block.get("half", (0.01, 0.01)) for block in blocks],
         "own_flags": [bool(block.get("own")) for block in blocks],
         "obstacles": obstacles,
+        "obstacle_extents": obstacle_extents,
         "robot": robot,
         "own_count": own_count,
         "homography": homography,
@@ -332,7 +384,7 @@ def detect_field(bgr: np.ndarray, lock: Optional[FieldLock] = None) -> Dict:
     }
 
 
-def _obstacles(hsv, homography, field_src, bias: float, robot_xy: Optional[Point]) -> List[Point]:
+def _obstacles(hsv, homography, field_src, bias: float, robot_xy) -> Tuple[List[Point], List[Point]]:
     """场地里比物块大、又不是红块和己方色标的物体。车自己身上的绿色和灰铲不算。"""
     height, width = hsv.shape[:2]
     inside = np.zeros((height, width), np.uint8)
@@ -341,16 +393,24 @@ def _obstacles(hsv, homography, field_src, bias: float, robot_xy: Optional[Point
     for name in ("yellow", "red_lo", "red_hi", "magenta", "cyan"):
         known = cv2.bitwise_or(known, _mask(hsv, *HSV[name]))
     other = cv2.bitwise_and(inside, cv2.bitwise_not(known))
+    if robot_xy is not None:
+        # 仅擦掉自身投影，而不是把距车心16cm内的整个对手轮廓丢弃。
+        rx, ry, yaw = robot_xy
+        c, s = np.cos(yaw), np.sin(yaw)
+        footprint = np.float32([(rx+c*fx-s*fy, ry+s*fx+c*fy+bias)
+                                for fx, fy in [(-.065,-.090),(.100,-.090),(.100,.090),(-.065,.090)]])
+        polygon = image_to_world(np.linalg.inv(homography), footprint).astype(np.int32)
+        cv2.fillConvexPoly(other, polygon, 0)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     other = cv2.morphologyEx(other, cv2.MORPH_OPEN, kernel)
     points = []
-    for blob in _blobs(other, homography, 0.06, 0.40, min_area_px=80.0):
+    extents = []
+    for blob in _blobs(other, homography, 0.035, 0.40, min_area_px=45.0):
         x, y = blob["xy"]
         y -= bias
-        if robot_xy is not None and _dist((x, y), robot_xy) < 0.16:
-            continue
         points.append((x, y))
-    return points
+        extents.append(blob["half"])
+    return points, extents
 
 
 def _mean_point(blobs: Sequence[dict], key: str) -> Point:

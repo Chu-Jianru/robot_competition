@@ -1,0 +1,5 @@
+path: E:/robot_competition/windows/test_data/red_train_20261110/yolo
+train: images/train
+val: images/val
+names:
+  0: red_block

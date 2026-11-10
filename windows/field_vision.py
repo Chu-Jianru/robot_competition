@@ -1,0 +1,394 @@
+"""Windows 场地几何、障碍和车体色标；红块像素检测在 red_blocks.py。
+
+不假设画面是正方形，也不假设场地铺满画面、边和图像轴对齐。
+先用蓝/黄找到场地四角，再变到场地坐标（中心为原点，黄区为 +y）。
+"""
+
+from typing import Dict, List, Optional, Sequence, Tuple
+
+import cv2
+import numpy as np
+
+FIELD_HALF = 0.6
+Point = Tuple[float, float]
+
+# OpenCV 的 H 是 0–180。范围按 Gazebo 材质留了余量，现场灯光不对时再收紧。
+HSV = {
+    "blue": ((100, 80, 40), (130, 255, 255)),
+    "yellow": ((15, 80, 40), (40, 255, 255)),
+    "red_lo": ((0, 70, 40), (10, 255, 255)),
+    "red_hi": ((170, 70, 40), (180, 255, 255)),
+    "magenta": ((135, 80, 40), (170, 255, 255)),
+    "cyan": ((80, 80, 40), (100, 255, 255)),
+}
+
+
+def _mask(hsv: np.ndarray, low: Sequence[int], high: Sequence[int]) -> np.ndarray:
+    return cv2.inRange(hsv, np.array(low, np.uint8), np.array(high, np.uint8))
+
+
+def _centroid(mask: np.ndarray) -> Optional[np.ndarray]:
+    moments = cv2.moments(mask, binaryImage=True)
+    if moments["m00"] < 1.0:
+        return None
+    return np.array(
+        [moments["m10"] / moments["m00"], moments["m01"] / moments["m00"]],
+        dtype=np.float32,
+    )
+
+
+def _field_quad(field_mask: np.ndarray) -> Optional[np.ndarray]:
+    contours, _ = cv2.findContours(field_mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_NONE)
+    if not contours:
+        return None
+    contour = max(contours, key=cv2.contourArea)
+    image_area = field_mask.shape[0] * field_mask.shape[1]
+    if cv2.contourArea(contour) < 0.05 * image_area:
+        return None
+    hull = cv2.convexHull(contour)
+    peri = cv2.arcLength(hull, True)
+    for ratio in (0.01, 0.02, 0.035, 0.05, 0.08):
+        approx = cv2.approxPolyDP(hull, ratio * peri, True)
+        if len(approx) == 4:
+            return _fit_field_edges(contour, approx.reshape(4, 2).astype(np.float32))
+    rect = cv2.minAreaRect(hull)
+    return cv2.boxPoints(rect).astype(np.float32)
+
+
+def _fit_field_edges(contour: np.ndarray, quad: np.ndarray) -> np.ndarray:
+    """由每条边中段的地面轮廓拟合直线，外推被车/块遮住的角。"""
+    points = contour.reshape(-1, 2).astype(np.float32)
+    lines = []
+    for a, b in zip(quad, np.roll(quad, -1, axis=0)):
+        edge = b - a
+        length = float(np.linalg.norm(edge))
+        if length < 20:
+            return quad
+        direction = edge / length
+        rel = points - a
+        along = rel @ direction
+        distance = np.abs(rel[:, 0] * direction[1] - rel[:, 1] * direction[0])
+        selected = points[(along > 0.15 * length) & (along < 0.85 * length) & (distance < max(5, 0.08 * length))]
+        if len(selected) < 12:
+            return quad
+        vx, vy, x, y = cv2.fitLine(selected, cv2.DIST_WELSCH, 0, 0.01, 0.01).reshape(-1)
+        lines.append((np.array([x, y]), np.array([vx, vy])))
+    fitted = []
+    for i in range(4):
+        a, u = lines[i - 1]
+        b, v = lines[i]
+        matrix = np.column_stack((u, -v))
+        if abs(float(np.linalg.det(matrix))) < 0.2:
+            return quad
+        fitted.append(a + np.linalg.solve(matrix, b - a)[0] * u)
+    fitted = np.float32(fitted)
+    if np.max(np.linalg.norm(fitted - quad, axis=1)) > 0.18 * np.sqrt(cv2.contourArea(quad)):
+        return quad
+    return fitted
+
+
+def _axes_from_colors(blue_xy: np.ndarray, yellow_xy: np.ndarray) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    y_axis = yellow_xy - blue_xy
+    norm = float(np.linalg.norm(y_axis))
+    if norm < 5.0:
+        return None
+    y_axis = y_axis / norm
+    # 图像 y 向下。顺着黄区方向看，右侧才是场地 +x。
+    x_axis = np.array([-y_axis[1], y_axis[0]], dtype=np.float32)
+    return x_axis, y_axis
+
+
+def _pair_corners(
+    corners: np.ndarray,
+    x_axis: np.ndarray,
+    y_axis: np.ndarray,
+    half: float = FIELD_HALF,
+) -> Optional[Tuple[np.ndarray, np.ndarray]]:
+    center = corners.mean(axis=0)
+    rel = corners - center
+    proj_x = rel @ x_axis
+    proj_y = rel @ y_axis
+    src = []
+    dst = []
+    used = set()
+    for sx in (1.0, -1.0):
+        for sy in (1.0, -1.0):
+            score = sx * proj_x + sy * proj_y
+            idx = int(np.argmax(score))
+            if idx in used:
+                return None
+            used.add(idx)
+            src.append(corners[idx])
+            dst.append((sx * half, sy * half))
+    return np.float32(src), np.float32(dst)
+
+
+def image_to_world(homography: np.ndarray, points: Sequence[Sequence[float]]) -> np.ndarray:
+    pts = np.asarray(points, dtype=np.float32).reshape(-1, 1, 2)
+    return cv2.perspectiveTransform(pts, homography).reshape(-1, 2)
+
+
+def _blobs(
+    mask: np.ndarray,
+    homography: np.ndarray,
+    min_side: float,
+    max_side: float,
+    min_area_px: float = 4.0,
+    long_only: bool = False,
+) -> List[dict]:
+    contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
+    found = []
+    for contour in contours:
+        if cv2.contourArea(contour) < min_area_px:
+            continue
+        moments = cv2.moments(contour)
+        if moments["m00"] <= 0:
+            continue
+        px = moments["m10"] / moments["m00"]
+        py = moments["m01"] / moments["m00"]
+        box = cv2.boxPoints(cv2.minAreaRect(contour))
+        world_box = image_to_world(homography, box)
+        side_a = float(np.linalg.norm(world_box[0] - world_box[1]))
+        side_b = float(np.linalg.norm(world_box[1] - world_box[2]))
+        short, long = min(side_a, side_b), max(side_a, side_b)
+        if long_only:
+            if long < min_side or long > max_side:
+                continue
+        elif short < min_side or long > max_side:
+            continue
+        center = image_to_world(homography, [(px, py)])[0]
+        if abs(float(center[0])) > FIELD_HALF + 0.02 or abs(float(center[1])) > FIELD_HALF + 0.05:
+            continue
+        found.append(
+            {
+                "xy": (float(center[0]), float(center[1])),
+                "px": (float(px), float(py)),
+                "side": long,
+                "half": (
+                    float(np.max(world_box[:, 0]) - np.min(world_box[:, 0])) / 2.0,
+                    float(np.max(world_box[:, 1]) - np.min(world_box[:, 1])) / 2.0,
+                ),
+            }
+        )
+    return found
+
+
+def _boundary_y(blue: np.ndarray, yellow: np.ndarray, homography: np.ndarray) -> float:
+    """蓝黄分界在当前单应性坐标里的 y。四边形几何中心不一定落在这条线上。"""
+    # 直接采样实际相邻的蓝黄地面，避免整片地面的分位数随遮挡面积漂移。
+    kernel = np.ones((5, 5), np.uint8)
+    seam = cv2.bitwise_and(cv2.dilate(blue, kernel), cv2.dilate(yellow, kernel))
+    yy, xx = np.where(seam > 0)
+    if len(xx) >= 30:
+        sample = np.column_stack((xx[::3], yy[::3])).astype(np.float32)
+        return float(np.median(image_to_world(homography, sample)[:, 1]))
+    step = 6
+    blue_s = blue[::step, ::step] > 0
+    yellow_s = yellow[::step, ::step] > 0
+    ys, xs = np.where(blue_s | yellow_s)
+    if len(xs) < 20:
+        return 0.0
+    pixels = np.stack((xs * step, ys * step), axis=1).astype(np.float32)
+    world = image_to_world(homography, pixels)
+    blue_y = world[blue_s[ys, xs], 1]
+    yellow_y = world[yellow_s[ys, xs], 1]
+    if blue_y.size < 10 or yellow_y.size < 10:
+        return 0.0
+    # 蓝区靠近分界的一侧，和黄区靠近分界的一侧。
+    return float(np.percentile(blue_y, 92) + np.percentile(yellow_y, 8)) / 2.0
+
+
+def _on_blue(blue: np.ndarray, yellow: np.ndarray, px: float, py: float) -> bool:
+    """看红块周围的地面颜色。块本身盖住中心，外圈才是蓝或黄。"""
+    x = int(round(px))
+    y = int(round(py))
+    radius = 16
+    y0 = max(0, y - radius)
+    y1 = min(blue.shape[0], y + radius + 1)
+    x0 = max(0, x - radius)
+    x1 = min(blue.shape[1], x + radius + 1)
+    patch_b = blue[y0:y1, x0:x1]
+    patch_y = yellow[y0:y1, x0:x1]
+    if patch_b.size == 0:
+        return False
+    yy, xx = np.ogrid[y0:y1, x0:x1]
+    ring = (xx - x) ** 2 + (yy - y) ** 2 >= 6 ** 2
+    blue_count = int(patch_b[ring].sum() / 255) if ring.shape == patch_b.shape else int((patch_b > 0).sum())
+    yellow_count = int(patch_y[ring].sum() / 255) if ring.shape == patch_y.shape else int((patch_y > 0).sum())
+    return blue_count >= yellow_count
+
+
+class FieldLock:
+    """跨帧稳住场地四角和蓝黄分界。
+
+    俯视相机是固定的，四角不该跟着轮廓噪声跳。单应性一跳，车和红块的坐标就一起漂。
+    同一把锁交给连续的 detect_field；单帧调用可以不传。
+    """
+
+    def __init__(self) -> None:
+        self.corners: Optional[np.ndarray] = None
+        self.corner_rejects = 0
+        self.reference: Optional[np.ndarray] = None
+        self.bias: Optional[float] = None
+        self.bias_rejects = 0
+
+    def corners_of(self, measured: np.ndarray) -> np.ndarray:
+        measured = np.asarray(measured, dtype=np.float32).reshape(4, 2)
+        if self.corners is None:
+            self.corners = measured.copy()
+            self.reference = measured.copy()
+            return measured.copy()
+        # 单角长期被遮挡不是相机搬动，不能过几帧就接受一个歪掉的场地。
+        shifted = np.linalg.norm(measured - self.reference, axis=1) > 4.0
+        if 0 < int(shifted.sum()) < 3:
+            return self.corners.copy()
+        jump = float(np.max(np.linalg.norm(measured - self.corners, axis=1)))
+        if jump > 18.0:
+            self.corner_rejects += 1
+            if self.corner_rejects < 6:
+                return self.corners.copy()
+            self.corners = measured.copy()
+            self.reference = measured.copy()
+            self.corner_rejects = 0
+            return measured.copy()
+        self.corner_rejects = 0
+        self.corners = 0.88 * self.corners + 0.12 * measured
+        return self.corners.copy()
+
+    def bias_of(self, measured: float) -> float:
+        measured = float(measured)
+        if self.bias is None:
+            self.bias = measured
+            return measured
+        if abs(measured - self.bias) > 0.03:
+            self.bias_rejects += 1
+            if self.bias_rejects < 5:
+                return self.bias
+            self.bias = measured
+            self.bias_rejects = 0
+            return measured
+        self.bias_rejects = 0
+        self.bias = 0.85 * self.bias + 0.15 * measured
+        return float(self.bias)
+
+
+def detect_field(bgr: np.ndarray, lock: Optional[FieldLock] = None) -> Dict:
+    """仅计算场地与车体；不检测红块，也不统计己方物块数量。"""
+    empty = {
+        "obstacles": [],
+        "robot": None,
+        "homography": None,
+        "field_px": None,
+        "robot_px": None,
+        "obstacle_extents": [],
+        "boundary_y": 0.0,
+    }
+    if bgr is None or bgr.size == 0:
+        return empty
+
+    hsv = cv2.cvtColor(bgr, cv2.COLOR_BGR2HSV)
+    blue = _mask(hsv, *HSV["blue"])
+    yellow = _mask(hsv, *HSV["yellow"])
+    field = cv2.bitwise_or(blue, yellow)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21))
+    field = cv2.morphologyEx(field, cv2.MORPH_CLOSE, kernel)
+
+    corners = _field_quad(field)
+    blue_xy = _centroid(blue)
+    yellow_xy = _centroid(yellow)
+    if corners is None or blue_xy is None or yellow_xy is None:
+        return empty
+    axes = _axes_from_colors(blue_xy, yellow_xy)
+    if axes is None:
+        return empty
+    paired = _pair_corners(corners, *axes)
+    if paired is None:
+        return empty
+    src, dst = paired
+    if lock is not None:
+        src = lock.corners_of(src)
+    homography = cv2.getPerspectiveTransform(src, dst)
+
+    magenta = _mask(hsv, *HSV["magenta"])
+    cyan = _mask(hsv, *HSV["cyan"])
+    small = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (3, 3))
+    magenta = cv2.morphologyEx(magenta, cv2.MORPH_OPEN, small)
+
+    markers = _blobs(magenta, homography, 0.012, 0.12)
+    headings = _blobs(cyan, homography, 0.008, 0.12, min_area_px=4.0)
+    bias = _boundary_y(blue, yellow, homography)
+    if lock is not None:
+        bias = lock.bias_of(bias)
+    for marker in markers:
+        x, y = marker["xy"]
+        marker["xy"] = (x, y - bias)
+    for heading in headings:
+        x, y = heading["xy"]
+        heading["xy"] = (x, y - bias)
+
+    robot = None
+    robot_px = None
+    if markers and headings:
+        front = _mean_point(markers, "xy")
+        rear = _mean_point(headings, "xy")
+        rx = (front[0] + rear[0]) / 2.0
+        ry = (front[1] + rear[1]) / 2.0
+        theta = float(np.arctan2(front[1] - rear[1], front[0] - rear[0]))
+        robot = (rx, ry, theta)
+        front_px = _mean_point(markers, "px")
+        rear_px = _mean_point(headings, "px")
+        robot_px = (
+            ((front_px[0] + rear_px[0]) / 2.0, (front_px[1] + rear_px[1]) / 2.0),
+            front_px,
+        )
+
+    obstacles, obstacle_extents = _obstacles(hsv, homography, src, bias, robot)
+    return {
+        "obstacles": obstacles,
+        "obstacle_extents": obstacle_extents,
+        "robot": robot,
+        "homography": homography,
+        "field_px": src,
+        "robot_px": robot_px,
+        "boundary_y": bias,
+    }
+
+
+def _obstacles(hsv, homography, field_src, bias: float, robot_xy) -> Tuple[List[Point], List[Point]]:
+    """场地里比物块大、又不是红块和己方色标的物体。车自己身上的绿色和灰铲不算。"""
+    height, width = hsv.shape[:2]
+    inside = np.zeros((height, width), np.uint8)
+    cv2.fillConvexPoly(inside, np.asarray(field_src, np.int32), 255)
+    known = _mask(hsv, *HSV["blue"])
+    for name in ("yellow", "red_lo", "red_hi", "magenta", "cyan"):
+        known = cv2.bitwise_or(known, _mask(hsv, *HSV[name]))
+    other = cv2.bitwise_and(inside, cv2.bitwise_not(known))
+    if robot_xy is not None:
+        # 仅擦掉自身投影，而不是把距车心16cm内的整个对手轮廓丢弃。
+        rx, ry, yaw = robot_xy
+        c, s = np.cos(yaw), np.sin(yaw)
+        footprint = np.float32([(rx+c*fx-s*fy, ry+s*fx+c*fy+bias)
+                                for fx, fy in [(-.065,-.090),(.100,-.090),(.100,.090),(-.065,.090)]])
+        polygon = image_to_world(np.linalg.inv(homography), footprint).astype(np.int32)
+        cv2.fillConvexPoly(other, polygon, 0)
+    kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
+    other = cv2.morphologyEx(other, cv2.MORPH_OPEN, kernel)
+    points = []
+    extents = []
+    for blob in _blobs(other, homography, 0.035, 0.40, min_area_px=45.0):
+        x, y = blob["xy"]
+        y -= bias
+        points.append((x, y))
+        extents.append(blob["half"])
+    return points, extents
+
+
+def _mean_point(blobs: Sequence[dict], key: str) -> Point:
+    xs = [blob[key][0] for blob in blobs]
+    ys = [blob[key][1] for blob in blobs]
+    n = float(len(blobs))
+    return sum(xs) / n, sum(ys) / n
+
+
+def _dist(a: Point, b: Point) -> float:
+    return float(np.hypot(a[0] - b[0], a[1] - b[1]))

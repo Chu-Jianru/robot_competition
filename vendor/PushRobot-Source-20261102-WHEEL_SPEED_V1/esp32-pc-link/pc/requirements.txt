@@ -1,0 +1,4 @@
+pyserial>=3.5,<4
+opencv-python>=4.10,<6
+Pillow>=12,<14
+pygrabber>=0.2

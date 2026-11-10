@@ -1,0 +1,9 @@
+{
+  "images_train": 61,
+  "images_val": 13,
+  "boxes_train": 1088,
+  "boxes_val": 238,
+  "skipped_unreviewed": 0,
+  "skipped_missing": 0,
+  "bad_boxes": 0
+}

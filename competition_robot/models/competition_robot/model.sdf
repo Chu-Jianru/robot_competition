@@ -7,14 +7,14 @@
 
   <link name="base_link">
     <inertial>
-      <pose>0.006640 0.000000 0.030826 0 0 0</pose>
+      <pose>0.006358 0.000000 0.030826 0 0 0</pose>
       <mass>3.976000</mass>
       <inertia>
-        <ixx>0.00528669</ixx>
-        <iyy>0.00519550</iyy>
-        <izz>0.00871955</izz>
+        <ixx>0.00546937</ixx>
+        <iyy>0.00511639</iyy>
+        <izz>0.00882312</izz>
         <ixy>0.00000000</ixy>
-        <ixz>0.00024597</ixz>
+        <ixz>0.00022936</ixz>
         <iyz>-0.00000000</iyz>
       </inertia>
     </inertial>
@@ -537,7 +537,7 @@
     </visual>
     <collision name="brush">
       <pose>0.064 0 0.016 1.5707963267948966 0 0</pose>
-      <geometry><cylinder><radius>0.012</radius><length>0.1</length></cylinder></geometry>
+      <geometry><cylinder><radius>0.012</radius><length>0.14</length></cylinder></geometry>
         <surface>
           <friction>
             <ode>
@@ -557,7 +557,7 @@
     </collision>
     <visual name="brush">
       <pose>0.064 0 0.016 1.5707963267948966 0 0</pose>
-      <geometry><cylinder><radius>0.012</radius><length>0.1</length></cylinder></geometry>
+      <geometry><cylinder><radius>0.012</radius><length>0.14</length></cylinder></geometry>
       <material>
         <ambient>0.05 0.35 0.12 1</ambient>
         <diffuse>0.05 0.35 0.12 1</diffuse>
@@ -565,15 +565,15 @@
     </visual>
     <visual name="brush_shaft">
       <pose>0.064 0 0.016 1.5707963267948966 0 0</pose>
-      <geometry><cylinder><radius>0.004</radius><length>0.122</length></cylinder></geometry>
+      <geometry><cylinder><radius>0.004</radius><length>0.152</length></cylinder></geometry>
       <material>
         <ambient>0.55 0.55 0.58 1</ambient>
         <diffuse>0.55 0.55 0.58 1</diffuse>
       </material>
     </visual>
     <collision name="plate_left">
-      <pose>0.064 0.057 0.016 0 0 0.26</pose>
-      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
+      <pose>0.05 0.062 0.016 0 0 0.42</pose>
+      <geometry><box><size>0.08 0.006 0.016</size></box></geometry>
         <surface>
           <friction>
             <ode>
@@ -592,16 +592,16 @@
         </surface>
     </collision>
     <visual name="plate_left">
-      <pose>0.064 0.057 0.016 0 0 0.26</pose>
-      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
+      <pose>0.05 0.062 0.016 0 0 0.42</pose>
+      <geometry><box><size>0.08 0.006 0.016</size></box></geometry>
       <material>
         <ambient>0.12 0.12 0.12 1</ambient>
         <diffuse>0.12 0.12 0.12 1</diffuse>
       </material>
     </visual>
     <collision name="plate_right">
-      <pose>0.064 -0.057 0.016 0 0 -0.26</pose>
-      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
+      <pose>0.05 -0.062 0.016 0 0 -0.42</pose>
+      <geometry><box><size>0.08 0.006 0.016</size></box></geometry>
         <surface>
           <friction>
             <ode>
@@ -620,8 +620,8 @@
         </surface>
     </collision>
     <visual name="plate_right">
-      <pose>0.064 -0.057 0.016 0 0 -0.26</pose>
-      <geometry><box><size>0.016 0.004 0.016</size></box></geometry>
+      <pose>0.05 -0.062 0.016 0 0 -0.42</pose>
+      <geometry><box><size>0.08 0.006 0.016</size></box></geometry>
       <material>
         <ambient>0.12 0.12 0.12 1</ambient>
         <diffuse>0.12 0.12 0.12 1</diffuse>

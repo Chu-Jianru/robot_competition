@@ -1,0 +1,5 @@
+pyserial-LICENSE.txt
+Project: pyserial 3.5
+Source: https://raw.githubusercontent.com/pyserial/pyserial/v3.5/LICENSE.txt
+Retrieved: 2026-10-21
+The license text is preserved without modification.

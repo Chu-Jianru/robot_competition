@@ -9,7 +9,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from sweep_robot.field_vision import FieldLock, detect_field
+from sweep_robot.field_vision import FieldLock, detect_field, image_to_world
 
 
 def world_to_px(x: float, y: float, scale: float) -> tuple:
@@ -143,6 +143,27 @@ def check_field_lock() -> None:
     print("四角锁定: 通过，单帧跳动被按住")
 
 
+def check_occluded_corner_and_close_opponent() -> None:
+    quad = np.float32([[190,110],[449,110],[449,369],[190,369]])
+    frame, _blocks, _robot = make_frame(quad, (640,480))
+    base = detect_field(frame)
+    covered = frame.copy()
+    cv2.rectangle(covered, (190,110), (224,144), (75,75,75), -1)
+    lock = FieldLock()
+    detect_field(frame, lock)
+    for _ in range(12): result = detect_field(covered, lock)
+    assert np.max(np.linalg.norm(result['field_px']-base['field_px'], axis=1)) < 3
+    assert math.dist(result['robot'][:2],base['robot'][:2]) < .015
+    # 一个距车心14cm的未知灰色物体，不能被原来的16cm排除半径吞掉。
+    rx, ry, _yaw = base['robot']
+    polygon = np.float32([(rx+.10,ry-.06),(rx+.18,ry-.06),(rx+.18,ry+.06),(rx+.10,ry+.06)])
+    pixels = image_to_world(np.linalg.inv(base['homography']), polygon).astype(np.int32)
+    cv2.fillConvexPoly(frame,pixels,(75,75,75))
+    result = detect_field(frame)
+    assert any(math.dist(o,(rx+.14,ry)) < .05 for o in result['obstacles']),result['obstacles']
+    print('持续墙角遮挡和近距离对手: 通过')
+
+
 def main() -> None:
     tilted = np.float32([[150, 60], [1120, 140], [1160, 880], [110, 800]])
     frame, blocks, robot = make_frame(tilted, (1280, 960))
@@ -153,6 +174,7 @@ def main() -> None:
     check("另一组倾斜", frame, blocks, robot)
     check_offset_boundary()
     check_field_lock()
+    check_occluded_corner_and_close_opponent()
 
 
 if __name__ == "__main__":

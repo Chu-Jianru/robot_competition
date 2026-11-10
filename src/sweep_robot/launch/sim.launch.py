@@ -1,16 +1,18 @@
-"""打开比赛世界。默认按比赛路线自动走：先推对方那一排，再推己方，然后把墙边的堆推进角落。
+"""打开比赛世界。默认横向整排推送、视觉复查和局部清理，持续监视回推。
 
   ros2 launch sweep_robot sim.launch.py
 
 只要仿真、自己键盘遥控时:
   ros2 launch sweep_robot sim.launch.py push:=false
+
+复现旧路线用于对照：controller:=follow_path
 """
 
 import os
 
 from launch import LaunchDescription
 from launch.actions import DeclareLaunchArgument, ExecuteProcess, SetEnvironmentVariable
-from launch.conditions import IfCondition
+from launch.conditions import IfCondition, UnlessCondition
 from launch.substitutions import LaunchConfiguration
 from launch_ros.actions import Node
 
@@ -75,7 +77,13 @@ def generate_launch_description() -> LaunchDescription:
             DeclareLaunchArgument("world", default_value=default_world),
             DeclareLaunchArgument("push", default_value="true"),
             DeclareLaunchArgument("autostart", default_value="false"),
+            DeclareLaunchArgument("gui", default_value="true"),
+            DeclareLaunchArgument("controller", default_value="adaptive_controller"),
+            DeclareLaunchArgument("sweep_rows", default_value="true"),
+            DeclareLaunchArgument("show_window", default_value="true"),
+            DeclareLaunchArgument("gazebo_params", default_value=os.path.join(os.path.dirname(os.path.dirname(os.path.abspath(__file__))),"config","gazebo.yaml")),
             SetEnvironmentVariable("GAZEBO_MODEL_PATH", _model_path(models)),
+            SetEnvironmentVariable("LP_NUM_THREADS","1"),
             SetEnvironmentVariable(
                 "GAZEBO_PLUGIN_PATH",
                 _prepend_env("GAZEBO_PLUGIN_PATH", _upright_plugin_dirs() + ros_libs),
@@ -85,12 +93,30 @@ def generate_launch_description() -> LaunchDescription:
                 cmd=[
                     "gazebo",
                     "--verbose",
+                    "--lockstep",
                     "-s",
                     "libgazebo_ros_init.so",
                     "-s",
                     "libgazebo_ros_factory.so",
                     LaunchConfiguration("world"),
+                    "--ros-args", "--params-file", LaunchConfiguration("gazebo_params"), "--",
                 ],
+                condition=IfCondition(LaunchConfiguration("gui")),
+                output="screen",
+            ),
+            ExecuteProcess(
+                cmd=[
+                    "gzserver",
+                    "--verbose",
+                    "--lockstep",
+                    "-s",
+                    "libgazebo_ros_init.so",
+                    "-s",
+                    "libgazebo_ros_factory.so",
+                    LaunchConfiguration("world"),
+                    "--ros-args", "--params-file", LaunchConfiguration("gazebo_params"), "--",
+                ],
+                condition=UnlessCondition(LaunchConfiguration("gui")),
                 output="screen",
             ),
             Node(
@@ -98,16 +124,19 @@ def generate_launch_description() -> LaunchDescription:
                 executable="hsv_detector",
                 name="hsv_detector",
                 output="screen",
-                parameters=[{"use_sim_time": True}],
+                parameters=[{"use_sim_time": True, "show_window": LaunchConfiguration("show_window"),
+                             "reliable_images": True,
+                             "camera_height": 2.55}],
             ),
             Node(
                 package="sweep_robot",
-                executable="follow_path",
+                executable=LaunchConfiguration("controller"),
                 name="follow_path",
                 output="screen",
                 condition=IfCondition(LaunchConfiguration("push")),
                 parameters=[
-                    {"use_sim_time": True, "autostart": LaunchConfiguration("autostart")},
+                    {"use_sim_time": True, "autostart": LaunchConfiguration("autostart"),
+                     "sweep_rows": LaunchConfiguration("sweep_rows")},
                 ],
             ),
         ]
