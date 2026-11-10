@@ -12,28 +12,26 @@
 
 ## 目录
 
-| 路径 | 内容 | 入库 |
-|---|---|---|
-| `windows/` | Windows 实机客户端：取图、视觉、标定、策略接入、诊断、离线测试 | 是 |
-| `windows/test_data/` | 场地照片、红块训练集、标注与清单；索引见 [数据说明](windows/test_data/README.md) | 是（约 48 MB） |
-| `windows/models/` | 训练后的 `red_block.onnx`，用于车上推理 | 是 |
-| `windows/tags/` | 车顶 ArUco 图纸（当前 ID 7）与生成脚本 | 是 |
-| `src/sweep_robot/` | ROS 2 包：纯 Python 策略、仿真适配、节点 | 是 |
-| `src/sweep_robot_gazebo/` | Gazebo 防翻车插件 | 是 |
-| `competition_robot/` | Gazebo 场地、车体模型和 `build_robot.py` | 是 |
-| `training/` | YOLO 训练脚本、Colab 笔记本、本机权重 | 脚本入库；`runs/`、`*.pt`、`*.zip` 本地 |
-| `hardware/` | 固件源码、烧录说明、接线表、封存工作台 | 源码入库；`workbench/` 本地 |
-| `vendor/` | 队友 2026-11-02 交付的 WHEEL_SPEED_V1 源码包，只读 | 是 |
-| `tools/` | 双击入口、面板、PlatformIO 工具链 | 脚本入库；环境本地 |
-| `docs/` | 设计、命令、盘点、历史汇报和媒体；索引见 [文档说明](docs/README.md) | 是 |
-| `records/` | 实车轨迹 CSV | 是 |
-| `archive/` | 队友原始交付 zip（与 `vendor/` 对应） | 是 |
-| `log/` | 仿真、视觉、标定的验证证据 | 否，本地保留 |
-| `.deps/`、`.deps-gpu/` | 训练/推理依赖（torch、onnxruntime 等） | 否，本地保留 |
-| `tools/*-venv/`、`tools/pio-*` | 面板和 PlatformIO 的本地环境 | 否，本地保留 |
-| `hardware/workbench/` | 2026-10-22 封存的底盘工作台（约 184 MB） | 否，本地保留 |
+| 路径 | 内容 |
+|---|---|
+| `windows/` | Windows 实机客户端：取图、视觉、标定、策略接入、诊断、离线测试 |
+| `windows/test_data/` | 场地照片、红块训练集、标注与清单；说明见 [数据说明](windows/test_data/README.md) |
+| `windows/models/` | 训练后的 `red_block.onnx`，用于车上推理 |
+| `windows/tags/` | 车顶 ArUco 图纸（当前 ID 7）与生成脚本 |
+| `src/sweep_robot/` | ROS 2 包：纯 Python 策略、仿真适配、节点 |
+| `src/sweep_robot_gazebo/` | Gazebo 防翻车插件 |
+| `competition_robot/` | Gazebo 场地、车体模型和 `build_robot.py` |
+| `training/` | YOLO 训练脚本、Colab 笔记本；权重和运行结果仅在本机 |
+| `hardware/` | 固件源码、烧录说明、接线表；封存工作台仅在本机 |
+| `vendor/` | 队友 2026-11-02 交付的 WHEEL_SPEED_V1 源码包，只读 |
+| `tools/` | 双击入口、面板、PlatformIO 工具链；运行环境仅在本机 |
+| `docs/` | 设计、命令、盘点、历史汇报和媒体；说明见 [文档说明](docs/README.md) |
+| `records/` | 实车轨迹 CSV |
+| `archive/` | 队友原始交付 zip（与 `vendor/` 对应） |
 
-## 入口
+`log/`、`.deps/`、`.deps-gpu/`、`tools/*-venv/`、`tools/pio-*`、`hardware/workbench/` 仅保留在本机，已由 `.gitignore` 排除；`training/runs/`、`training/*.pt`、`training/*.zip` 同样仅保留在本机。
+
+## 常用入口
 
 | 操作 | 位置 |
 |---|---|
@@ -45,7 +43,7 @@
 | 固件与接线 | [hardware/README.md](hardware/README.md)、[hardware/firmware/README.md](hardware/firmware/README.md) |
 | ROS 仿真 | [AGENTS.md](AGENTS.md)；h15 已暂停，恢复前需确认 |
 
-## 文件位置
+## 主要文件
 
 | 任务 | 文件 |
 |---|---|
@@ -58,7 +56,7 @@
 | HSV 与 ONNX 对比 | `windows/evaluate_detector.py`、`windows/比较红块检测.cmd` |
 | 固件烧录 | `hardware/firmware/WHEEL_SPEED_V1/motor-bringup/`；步骤见 [tools 说明](tools/README.md) |
 | 历史汇报 | [docs/history/](docs/history/)；第三次汇报见 [`docs/history/第三次汇报/`](docs/history/第三次汇报/) |
-| 验证证据 | `log/`（本地，不入库） |
+| 验证证据 | `log/`（仅本机） |
 
 ## 配置与限制
 
