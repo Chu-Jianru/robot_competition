@@ -23,11 +23,16 @@ training/runs/
 training/*.pt
 training/*.zip
 *.pt
+# Ultralytics 可能在仓库根目录生成运行结果。
+/runs/
+# YOLO 训练格式由原始帧和人工标注导出。
+/windows/test_data/red_train_20261110/yolo/
 
 # ============================================================
 # 现场标定与运行时生成物
 # ============================================================
 windows/field_calib.json
+/windows/field_calib_preview.png
 windows/task_drive.json
 windows/captures_hi/live_*/
 windows/captures_hi/diag_*/

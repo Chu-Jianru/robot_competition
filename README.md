@@ -39,7 +39,7 @@
 | 实机自主清扫 | `tools/启动自主清扫.cmd`；前置标定见 [Windows 说明](windows/README.md) |
 | 命令与快捷键 | [docs/常用命令.md](docs/常用命令.md) |
 | 手机接入与首次配置 | [docs/手机接入与自主清扫手册.md](docs/手机接入与自主清扫手册.md) |
-| 红块模型训练 | [training/README.md](training/README.md) |
+| 红块模型训练 | 新克隆先[导出 YOLO 训练集](windows/test_data/README.md#使用)，再按 [training/README.md](training/README.md) 训练 |
 | 固件与接线 | [hardware/README.md](hardware/README.md)、[hardware/firmware/README.md](hardware/firmware/README.md) |
 | ROS 仿真 | [AGENTS.md](AGENTS.md)；h15 已暂停，恢复前需确认 |
 
