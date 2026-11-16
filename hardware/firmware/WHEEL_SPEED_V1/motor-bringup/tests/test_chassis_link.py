@@ -112,6 +112,87 @@ class ChassisLinkTests(unittest.TestCase):
         self.assertFalse(client.layout_confirmed)
         self.assertFalse(any(s.startswith(("LAYOUT ", "MECANUM ", "WHEELS ", "JOG ")) for s in peer.writes))
 
+    def test_four_v2_connects_and_can_start_wheel_calibration(self):
+        client, peer = self.live(ChassisPeer(profile="FOUR_V2"))
+        self.assertTrue(until(lambda: client.ready and client.closed_loop_supported))
+        self.assertEqual(client.profile, "FOUR_V2")
+        self.assertTrue(client.configure_layout("CBDA", (1, 1, 1, 1)))
+        self.assertTrue(until(lambda: client.layout_confirmed))
+        self.assertTrue(client.calibrate())
+        self.assertTrue(until(lambda: "CAL" in peer.writes))
+
+    def test_handshake_does_not_overfill_the_bluetooth_reply_queue(self):
+        class BoundedPeer(ChassisPeer):
+            overflow = False
+
+            def write(self, data):
+                if self.overflow:
+                    return len(data)
+                command = data.decode().strip()
+                reply = {
+                    "STOP": ["STOPPED command", *encoders],
+                    "CAPS": ["CAPS MOTORS=ABCD PINS=FOUR_V2", "FIRMWARE VERSION=V3",
+                             "CHASSIS_HOLD LEASE_MS=250", "CHASSIS_HOLD_RELEASE GUARD_MS=60",
+                             "CHASSIS_MANUAL LEASE_MS=250", "CHASSIS_STREAM LEASE_MS=150",
+                             "CHASSIS_SPEED_STREAM LEASE_MS=150", "CHASSIS_SPEED_PWM_MAX=80",
+                             "CHASSIS_CAPS API=MECANUM_V2 MIX=X UNITS=PERCENT FORWARD=UNIFIED",
+                             self.CAPS2, "LINK_CAPS USB=1 BT=SPP OWNER=EXCLUSIVE"],
+                    "STATUS": ["STOPPED ALL", *encoders, "FAULT none"],
+                }.get(command)
+                if reply is None:
+                    result = super().write(data)
+                else:
+                    self.writes.append(command)
+                    with self.lock:
+                        self.buffer.extend(("\n".join(reply) + "\n").encode())
+                    result = len(data)
+                with self.lock:
+                    if self.buffer.count(b"\n") > 16:
+                        self.overflow = True
+                        self.buffer.clear()
+                return result
+
+        encoders = [f"ENC {letter} ticks=0 invalid=0 A=0 B=0" for letter in "ABCD"]
+        client, peer = self.live(BoundedPeer(profile="FOUR_V2"))
+        self.assertTrue(until(lambda: client.ready))
+        self.assertFalse(peer.overflow)
+        begin = peer.writes.index("STOP")
+        self.assertEqual(peer.writes[begin:begin + 4], ["STOP", "CAPS", "PING", "STATUS"])
+        self.assertTrue(client.configure_layout("CBDA", (1, 1, 1, 1)))
+        self.assertTrue(until(lambda: client.layout_confirmed))
+        self.assertFalse(peer.overflow)
+
+    def test_progress_keeps_calibration_link_alive_and_silence_still_stops(self):
+        class ProgressPeer(ChassisPeer):
+            calibrating = False
+            silent = False
+
+            def write(self, data):
+                command = data.decode().strip()
+                if command == "CAL":
+                    self.calibrating = True
+                if self.calibrating and command in ("PING", "STATUS"):
+                    self.writes.append(command)
+                    with self.lock:
+                        if command == "PING" and not self.silent:
+                            self.buffer.extend(b"CAL PROGRESS run 1 60\n")
+                    return len(data)
+                return super().write(data)
+
+        client, peer = self.live(ProgressPeer(profile="FOUR_V2"))
+        self.assertTrue(until(lambda: client.ready and client.closed_loop_supported))
+        self.assertTrue(client.configure_layout("CBDA", (1, 1, 1, 1)))
+        self.assertTrue(until(lambda: client.layout_confirmed))
+        begin = peer.writes.count("PING")
+        self.assertTrue(client.calibrate())
+        self.assertTrue(until(lambda: peer.writes.count("PING") >= begin + 5, timeout=4.4))
+        self.assertTrue(client.ready)
+        peer.silent = True
+        self.assertTrue(until(lambda: peer.closed, timeout=3.4))
+        self.assertIn("STOP", peer.writes[peer.writes.index("CAL") + 1:])
+        self.assertTrue(any(kind == "error" and "CAL PROGRESS run 1 60" in detail
+                            for kind, detail in client.poll()))
+
     def test_missing_feature_and_wrong_pins_cannot_enable(self):
         for peer in (ChassisPeer(feature=False), ChassisPeer(profile="OLD"), ChassisPeer(api="MECANUM_V1")):
             client, _ = self.live(peer)

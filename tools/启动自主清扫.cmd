@@ -3,7 +3,7 @@ setlocal
 set "PYTHONUTF8=1"
 set "ROBOT_PY=E:\scrcpy\scrcpy-win64-v5.0.1\.venv\Scripts\python.exe"
 if not exist "%ROBOT_PY%" goto missing
-"%ROBOT_PY%" "%~dp0..\windows\run_task.py" %*
+"%ROBOT_PY%" "%~dp0..\windows\run_task.py" --rotate 90 %*
 set "ROBOT_RESULT=%ERRORLEVEL%"
 if not "%ROBOT_RESULT%"=="0" pause
 exit /b %ROBOT_RESULT%

@@ -21,10 +21,18 @@ inline bool valid(const Layout& layout) {
   return true;
 }
 
+inline void compose(int x, int y, int z, int wheel[4]) {
+  wheel[0] = x - y - z;
+  wheel[1] = x + y + z;
+  wheel[2] = x + y - z;
+  wheel[3] = x - y + z;
+}
+
 inline void mix(int x, int y, int z, const Layout& layout, int output[4]) {
-  const int wheel[4] = {x - y - z, x + y + z, x + y - z, x - y + z};
+  int wheel[4];
+  compose(x, y, z, wheel);
   int peak = 100;
-  for (int value : wheel) {
+  for (const int value : wheel) {
     const int magnitude = value < 0 ? -value : value;
     if (magnitude > peak) peak = magnitude;
   }

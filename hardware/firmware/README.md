@@ -1,6 +1,6 @@
-# 固件工作副本：WHEEL_SPEED_V1
+# 本车固件 V3
 
-用于把队友 2026-11-02 的固件烧到本车 ESP32 的**可写构建目录**。`vendor/` 里的原件保持只读、带 93 条 SHA 清单，不在那里编译或修改。
+本车 V3 基于队友 2026-11-02 提供的 WHEEL_SPEED_V1 源码，在 `hardware/firmware/WHEEL_SPEED_V1/` 构建。
 
 ## 同名内容一共三处，各管一件事
 
@@ -10,7 +10,7 @@
 | `hardware/firmware/WHEEL_SPEED_V1/` | 本车的构建副本，改极性、后续改流式接口都在这 | 可以 |
 | `archive/deliverables/PushRobot-Source-20261102-WHEEL_SPEED_V1.zip` | 收到的原始压缩包，归档留证 | 不动 |
 
-三者内容是同一版：zip 与 `vendor/` 94 个文件逐字节相同，工作副本除 `motor_profile.h` 一行外与之相同。改动后想确认有没有漂移，双击 `tools\核对固件版本.cmd`（或跑 `tools/check-firmware-sync.ps1`）。
+原始 zip 与 `vendor/` 的 94 个文件逐字节相同。V3 工作副本保留闭环，并加入本车引脚、极性和键盘持续控制。双击 `tools\核对固件版本.cmd` 可对照原版检查工作副本的改动。
 
 **旧版固件只有一处**：`hardware/workbench/source/motor-bringup/`（MECANUM_V2，无蓝牙），只用于回退，不是当前开发目标。
 
@@ -22,16 +22,17 @@
   - `esp32-pc-link/lib/link_core/`（`main.cpp` 与 `dry_core.cpp` 用相对路径引用它）。
 - 未复制 `debug-workbench/`、`release_tools/`、`docs/` —— 那是队友的上位机和打包工具，不是固件依赖。
 
-## 与原件唯一的差异
+## V3 引脚、极性和轮位
+
+V3 使用从本车原固件镜像核对的 `FOUR_V2` 引脚。按 IN1、IN2、编码器 A、编码器 B 顺序，A 路为 `22, 23, 21, 19`，B 路为 `17, 18, 16, 4`，C 路为 `26, 25, 27, 14`，D 路为 `32, 33, 35, 34`。STBY 为 GPIO13。
 
 `motor-bringup/src/motor_profile.h` 的四路电气极性：
 
 ```cpp
-// 原包（队友车）：{-1, -1, -1, -1}
-constexpr int kForwardPolarity[4] = {-1, 1, 1, -1};   // 本车，取自 hardware/workbench 已实跑值
+constexpr int kForwardPolarity[4] = {1, -1, -1, 1};  // 与 2026-11-16 实车 FOUR_V2 回读一致
 ```
 
-不改这一行，B/C 两轮会反着转。轮位**不写在固件里**，是运行期命令 `LAYOUT ADBC 1 1 1 1`；我们的 `windows/chassis_link.py` 连接后会自动发。
+轮位在连接时通过 `LAYOUT` 设置。本机键盘遥控默认发送 `LAYOUT CBDA 1 1 1 1`。V3 通过 `CAPS` 回报 `FIRMWARE VERSION=V3`。
 
 ## 编译与烧录
 
@@ -56,19 +57,27 @@ tools\pio-venv\Scripts\pio.exe run -d hardware\firmware\WHEEL_SPEED_V1\motor-bri
 WHO          -> UNIFIED_ROBOT 1 mode=DRY_RUN
 CAPS         -> 应含 CHASSIS_CAPS2 API=WHEEL_SPEED_V1 CLOSED=1 CAL=1 TELEM=1
              -> 应含 LINK_CAPS USB=1 BT=SPP OWNER=EXCLUSIVE NAME=PushRobot-ESP32
-POLARITY     -> MOTOR_FORWARD A=-1 B=1 C=1 D=-1   （与副本一致）
-STATUS       -> STOPPED ALL
+             -> 应含 CAPS MOTORS=ABCD PINS=FOUR_V2、FIRMWARE VERSION=V3
+             -> 应含 CHASSIS_HOLD LEASE_MS=250
+             -> 应含 CHASSIS_HOLD_RELEASE GUARD_MS=60
+             -> 应含 CHASSIS_MANUAL LEASE_MS=250
+POLARITY     -> MOTOR_FORWARD A=1 B=-1 C=-1 D=1   （与 V3 一致）
+IO           -> IO mode=DRY_RUN standby=0 A=0,0 B=0,0 C=0,0 D=0,0
 ```
 
 然后架空车轮、断驱动电源以外的前提都确认后：
 
 ```
 MODE CHASSIS
-LAYOUT ADBC 1 1 1 1
+LAYOUT CBDA 1 1 1 1
 MECANUM 15 0 0 300
 ```
 
 四轮都应朝车头。开环 `MECANUM` **不需要标定**；`SPEED` / `SPEEDW` 闭环需要先 `CAL`，标定结果存 NVS（`SAVE`），不用重烧。
+
+新版键盘用 `MECANUM_MANUAL` 更新单轴目标，三轴全零会清零 PWM 并关闭 STBY。换向时先关闭 STBY、清零 PWM，再装载新方向并使能，无固定等待。按住时用 `MECANUM_KEEP` 续期，超过 250 毫秒后停车，迟到的续期指令无法重新启动。定时动作和旧键盘协议仍沿用各自的停机间隔。
+
+自动标定和自主清扫用 `SPEED_STREAM <forward> <left> <ccw> <lease_ms>` 持续更新三轴计数速度（counts/s）。能力回报为 `CHASSIS_SPEED_STREAM LEASE_MS=150` 和 `CHASSIS_SPEED_PWM_MAX=80`。有效轮速标定就绪后，`SPEED_INFO` 返回最大混控计数速度（80% Vmax）和四轮编码器符号，`ENC_SNAPSHOT` 同时读取四轮原始计数。固件每 10 毫秒更新闭环，连续闭环的 PWM 限幅为 80%。每条指令最多生效 150 毫秒，正常更新回报 `STREAM_OK`。`STOP` 立即撤销输出。若租期超时或其他控制端请求停车，必须重新进入 `MODE CHASSIS` 并确认轮位才能恢复连续驱动。开环 `MECANUM_STREAM` 的独立限幅为 40%。
 
 ## 尚未做
 

@@ -1,6 +1,6 @@
 @echo off
 setlocal
-set "ROOT=%~dp0.."
+for %%I in ("%~dp0..") do set "ROOT=%%~fI"
 set "V=%ROOT%\vendor\PushRobot-Source-20261102-WHEEL_SPEED_V1"
 set "PY=%ROOT%\tools\panel-venv\Scripts\python.exe"
 
@@ -8,7 +8,7 @@ if not exist "%PY%" goto nodeps
 "%PY%" -c "import serial, cv2, PIL" >nul 2>&1
 if errorlevel 1 goto nodeps
 
-set "PYTHONPATH=%V%\debug-workbench;%V%\esp32-pc-link\pc;%V%\motor-bringup"
+set "PYTHONPATH=%ROOT%\hardware\firmware\WHEEL_SPEED_V1\motor-bringup;%V%\debug-workbench;%V%\esp32-pc-link\pc;%V%\motor-bringup"
 set "ROBOT_WORKBENCH_DATA_DIR=%ROOT%\tools\panel-data"
 set "PYTHONDONTWRITEBYTECODE=1"
 

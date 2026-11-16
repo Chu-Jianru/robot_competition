@@ -17,9 +17,9 @@ import numpy as np
 from calibrated_blocks import detect_calibrated_blocks
 from block_tracks import BlockStabilizer
 from capture_hi import rotate
-from chassis_link import ChassisError, ChassisLink
+from chassis_link import ChassisError, ChassisLink, STREAM_MIN_MS, STREAM_SEND_MARGIN_S
 from field_view import FieldCalibration
-from field_vision import HSV, _obstacles, image_to_world
+from field_vision import HSV, _obstacles, find_seam, image_to_world
 from orientation import decide_rotation, field_rotation
 from pose_tag import detect
 from tag_detector import TAG_ID
@@ -27,67 +27,101 @@ from usb_camera import UsbCamera
 
 HERE = Path(__file__).resolve().parent
 sys.path.insert(0, str(HERE.parent / "src" / "sweep_robot"))
+from sweep_robot.competition_policy import wrap
 from sweep_robot.row_policy import HybridCompetitionPolicy
 
 DURATION = 90.0
 MAX_AGE = 0.35
-PULSE_MS = 100
-SEND_MARGIN = 0.04
+STREAM_RESERVE = STREAM_MIN_MS / 1000 + STREAM_SEND_MARGIN_S
 WINDOW = "Sweep Robot | SPACE start | Q / Esc stop"
+
+# Roof tag sits ahead of chassis centre and right of its lateral midpoint.
+# These outlines follow the observed real car in tag-relative metres (forward, left).
+ROBOT_OUTLINE = np.array([(.058, -.053), (.058, .058), (-.012, .058), (-.012, .103),
+                          (-.155, .103), (-.155, -.077), (-.012, -.077), (-.012, -.053)])
+# Wheels and bumpers sit below the tag plane and can project outside the template.
+OBSTACLE_OUTLINE_PAD_MM = 18
+ROBOT_WHEELS = (
+    np.array([(-.014, .052), (-.014, .101), (-.144, .101), (-.144, .052)]),
+    np.array([(-.014, -.071), (-.014, -.031), (-.144, -.031), (-.144, -.071)]),
+)
 
 
 @dataclass(frozen=True)
 class DriveConfig:
     port: str
     layout: str
-    forward_mm_per_pct_s: float
-    left_mm_per_pct_s: float
-    turn_deg_per_pct_s: float
-    max_wheel_percent: int
+    forward_counts_per_mm: float
+    left_counts_per_mm: float
+    turn_counts_per_deg: float
+    max_wheel_counts_per_s: int
+    encoder_signs: tuple[int, ...]
 
     def __post_init__(self):
         if not re.fullmatch(r"COM[1-9]\d*", self.port):
             raise ValueError("请输入蓝牙传出串口，例如 COM6")
         if not isinstance(self.layout, str) or sorted(self.layout) != list("ABCD"):
             raise ValueError("轮位必须为本车实测的 FL/FR/RL/RR 四路顺序")
-        gains = (self.forward_mm_per_pct_s, self.left_mm_per_pct_s, self.turn_deg_per_pct_s)
+        gains = (self.forward_counts_per_mm, self.left_counts_per_mm, self.turn_counts_per_deg)
         if not all(math.isfinite(gain) and gain > 0 for gain in gains):
             raise ValueError("三个实测运动换算值必须为正数")
-        if type(self.max_wheel_percent) is not int or not 1 <= self.max_wheel_percent <= 40:
-            raise ValueError("本任务入口的单轮输出上限必须为 1–40%")
+        if type(self.max_wheel_counts_per_s) is not int or not 1 <= self.max_wheel_counts_per_s <= 1_000_000:
+            raise ValueError("单轮计数速度上限无效，请重新标定")
+        if len(self.encoder_signs) != 4 or any(sign not in (-1, 1) for sign in self.encoder_signs):
+            raise ValueError("编码器符号无效，请重新标定")
 
     def convert(self, velocity):
         """Keep the mixed wheel budget and recheck the quantized body velocity."""
-        gains = (self.forward_mm_per_pct_s / 1000, self.left_mm_per_pct_s / 1000,
-                 math.radians(self.turn_deg_per_pct_s))
-        requested = [value / gain for value, gain in zip(velocity, gains)]
-        scale = min(1., self.max_wheel_percent / max(sum(map(abs, requested)), 1.))
+        requested = [value * gain for value, gain in zip(velocity, self.gains)]
+        scale = min(1., self.max_wheel_counts_per_s / max(sum(map(abs, requested)), 1.))
         # Truncate toward zero so rounding cannot exceed the wheel budget.
         command = tuple(int(value * scale) for value in requested)
-        estimated = tuple(value * gain for value, gain in zip(command, gains))
-        return command, estimated
+        return command, self.estimate(command)
+
+    @property
+    def gains(self):
+        return (self.forward_counts_per_mm * 1000, self.left_counts_per_mm * 1000,
+                self.turn_counts_per_deg * math.degrees(1.0))
+
+    def estimate(self, command):
+        return tuple(value / gain for value, gain in zip(command, self.gains))
+
+    def verify_board(self, info):
+        limit, signs = info
+        if tuple(self.encoder_signs) != signs or self.max_wheel_counts_per_s > limit:
+            raise ValueError("底盘编码器符号或轮速量程已变，请重新运行菜单 11")
 
 
-def configure(path):
-    print("输入已在本车确认的参数。轮位是 FL/FR/RL/RR；运动数据使用开环短脉冲实测值。")
-    print(f"用 {PULSE_MS} ms 脉冲实测。换算 = 位移(mm)或转角(度) ÷ 指令百分数(如 30) ÷ 脉冲时长(秒)。")
-    settings = DriveConfig(
-        input("蓝牙传出端口 [COM6]：").strip().upper() or "COM6",
-        input("已核对的轮位顺序：").strip().upper(),
-        float(input("前进 mm/(%·s)：")),
-        float(input("左移 mm/(%·s)：")),
-        float(input("逆时针 °/(%·s)：")),
-        int(input("已验证的单轮输出上限（1–40%）：")),
-    )
+def configure(args, calib):
+    from calibrate_drive import measure_drive
+
+    port = input("蓝牙传出端口 [COM6]：").strip().upper() or "COM6"
+    layout = input("已核对的 FL/FR/RL/RR 轮位 [CBDA]：").strip().upper() or "CBDA"
+    if not re.fullmatch(r"COM[1-9]\d*", port) or sorted(layout) != list("ABCD"):
+        raise ValueError("请核对蓝牙传出端口和四轮通道顺序")
+    # Temporarily skip near-car obstacle classification for empty-field calibration.
+    check_obstacles = False
+    vision = task_vision(args, calib, keep_source=check_obstacles, detect_obstacles=check_obstacles)
+    vision.home_side = "blue"
+    link = ChassisLink(port, layout=f"{layout} 1 1 1 1", strict=True,
+                       require_speed_stream=True, stream_pipeline=True)
+    measured = measure_drive(vision, link, layout, MAX_AGE, STREAM_RESERVE,
+                             check_obstacles=check_obstacles)
+    if measured is None:
+        return 130
+    gains, limit, signs = measured
+    settings = DriveConfig(port, layout, *gains, limit, signs)
+    path = args.config
     pending = path.with_suffix(path.suffix + ".tmp")
     pending.write_text(json.dumps(vars(settings), indent=2) + "\n", encoding="utf-8")
     pending.replace(path)
     print(f"已保存 {path}")
+    return 0
 
 
 def load_calibration(path):
     if not path.is_file():
-        raise ValueError("缺少场地标定。先在日常工具选 1 拍完整场地，再选 4 点地面四角")
+        raise ValueError("缺少场地标定。选 1 按 S 拍完整场地，点四个地面内角后按回车保存")
     calib = FieldCalibration.load(path)
     corners = calib.corners
     if (calib.field_mm != 1200 or calib.size != 960 or not calib.source_size
@@ -95,38 +129,25 @@ def load_calibration(path):
             or not np.isfinite(corners).all() or not cv2.isContourConvex(corners)
             or cv2.contourArea(corners, oriented=True) < 100
             or np.any(corners < 2) or np.any(corners >= np.array(calib.source_size) - 2)):
-        raise ValueError("需用完整入镜的 1.2 m 场地原图，按左上、右上、右下、左下重新标定")
+        raise ValueError("请选 1 按 S 拍完整的 1.2 m 场地，重新点四个地面内角后按回车保存")
     return calib
 
 
-def find_seam(blue, yellow):
-    """Require an observed, approximately horizontal blue/yellow transition."""
-    height, width = blue.shape
-    seams = []
-    for x in np.linspace(.08, .92, 9) * width:
-        half = width // 30
-        band = slice(int(x) - half, int(x) + half)
-        b = (blue[:, band] > 0).mean(axis=1)
-        y = (yellow[:, band] > 0).mean(axis=1)
-        if y[height//12:height//4].mean() < .6 or b[3*height//4:11*height//12].mean() < .6:
-            continue
-        lo, hi = height * 2 // 5, height * 3 // 5
-        south = np.flatnonzero(b[lo:hi] > .65)
-        north = np.flatnonzero(y[lo:hi] > .65)
-        if south.size and north.size and 0 < south[0] - north[-1] <= height * .03:
-            seams.append(lo + (south[0] + north[-1]) / 2)
-    if len(seams) < 6 or np.ptp(seams) > height * .025:
-        return None
-    seam = float(np.median(seams))
-    return seam if abs(seam - height / 2) <= height * .025 else None
+def project_robot_outline(points, pose, mm_per_px):
+    yaw = math.radians(pose.heading_deg)
+    c, s = math.cos(yaw), math.sin(yaw)
+    # Image y increases downwards; the 50 mm tag gives the local projected scale.
+    pixels_per_metre = 1000 * pose.side_mm / (50 * mm_per_px)
+    return np.float32(pose.center_px + pixels_per_metre * (points @ [[c, -s], [-s, -c]]))
 
 
-def observe(image, calib, stamp, stats=None, detector=None):
+def observe(image, calib, stamp, stats=None, detector=None, *, home_side="blue", detect_obstacles=True):
     """Warp one frame and return the scene the policy sees.
 
     `stats` is an optional dict that receives this frame's decision counters
     (reason, seam, tag, component/split counts) for diagnostics; it does not
     change the returned scene.
+    A None home_side tracks the robot's current half while staging a run.
     """
     if stats is not None:
         stats.clear()
@@ -165,6 +186,9 @@ def observe(image, calib, stamp, stats=None, detector=None):
              math.radians(pose.heading_deg))
     if not (-.6 < robot[0] < .6 and -.6 < robot[1] + bias < .6):
         return fail("tag outside field", view)
+    if home_side is None:
+        home_side = "blue" if robot[1] < 0 else "yellow"
+    direction = -1 if home_side == "yellow" else 1
     if stats is not None:
         stats["bias"] = bias
     tag = {"id": pose.tag_id, "corners_px": image_to_world(np.linalg.inv(homography), pose.corners_px)}
@@ -182,10 +206,19 @@ def observe(image, calib, stamp, stats=None, detector=None):
             stats.update(candidates=len(detections), kept=len(detections))
     marked = view.copy()
     cv2.line(marked, (0, round(seam)), (calib.size - 1, round(seam)), (255, 255, 0), 2)
+    wheels = [project_robot_outline(wheel, pose, calib.mm_per_px) for wheel in ROBOT_WHEELS]
+    wheel_bounds = [(wheel.min(axis=0), wheel.max(axis=0)) for wheel in wheels]
     for block in detections:
         contour = image_to_world(homography, block["contour_px"]).reshape(-1, 2)
         x, y = image_to_world(homography, [block["center_px"]])[0]
         if not (0 <= x < calib.size and 0 <= y < calib.size):
+            continue
+        # Reject only contours wholly on a wheel strip. A block touching the
+        # wheel and extending beyond the strip must remain visible to the planner.
+        low, high = contour.min(axis=0), contour.max(axis=0)
+        if any(np.all(low >= wheel_low) and np.all(high <= wheel_high)
+               and all(cv2.pointPolygonTest(wheel, tuple(map(float, point)), False) >= 0 for point in contour)
+               for wheel, (wheel_low, wheel_high) in zip(wheels, wheel_bounds)):
             continue
         dx, dy = np.max(np.abs(contour - [x, y]), axis=0) * metres
         radius = math.ceil(max(dx, dy) / metres + 10 / calib.mm_per_px)
@@ -196,14 +229,25 @@ def observe(image, calib, stamp, stats=None, detector=None):
         cv2.fillPoly(around, [np.int32(contour - [x0, y0])], 0)
         b = np.count_nonzero(blue[y0:y1, x0:x1] & around.astype(bool))
         g = np.count_nonzero(yellow[y0:y1, x0:x1] & around.astype(bool))
-        scene["blocks"].append((x*metres-.6, (seam-y)*metres,
-                                max(.005, dx), max(.005, dy), b > g))
-        cv2.polylines(marked, [np.int32(contour)], True, (0, 235, 0) if b > g else (0, 180, 255), 2)
+        own = direction * (b - g) > 0
+        scene["blocks"].append((direction * (x*metres-.6), direction * (seam-y)*metres,
+                                max(.005, dx), max(.005, dy), own))
+        cv2.polylines(marked, [np.int32(contour)], True, (0, 235, 0) if own else (0, 180, 255), 2)
     size = calib.size - 1
-    border = [(0, 0), (size, 0), (size, size), (0, size)]
-    positions, extents = _obstacles(hsv, centered, border, bias, robot)
-    scene.update(valid=True, robot=robot, obstacles=[(*p, *h) for p, h in zip(positions, extents)])
-    scene["seam_bias"] = bias
+    if detect_obstacles:
+        border = [(0, 0), (size, 0), (size, size), (0, size)]
+        outline = project_robot_outline(ROBOT_OUTLINE, pose, calib.mm_per_px)
+        outline_pad = math.ceil(OBSTACLE_OUTLINE_PAD_MM * pose.side_mm / (50 * calib.mm_per_px))
+        positions, extents = _obstacles(hsv, centered, border, bias, robot, robot_outline_px=outline,
+                                        robot_outline_pad_px=outline_pad, floor_seam_px=seam)
+        scene["obstacles"] = [(direction * x, direction * y, *extent)
+                              for (x, y), extent in zip(positions, extents)]
+    # The planner's negative-y half is always home. A half-turn preserves the
+    # robot's local velocity axes for a yellow-side start.
+    if direction == -1:
+        robot = (-robot[0], -robot[1], wrap(robot[2] + math.pi))
+    scene.update(valid=True, robot=robot, home_side=home_side,
+                 seam_bias=direction * bias, tag_side_mm=pose.side_mm)
     cv2.polylines(marked, [np.int32(pose.corners_px)], True, (255, 255, 255), 2)
     return scene, marked, "vision ready"
 
@@ -223,10 +267,14 @@ def latest_scene(new, held):
 
 
 class VisionWorker:
-    def __init__(self, camera, calib, rotation, stabilizer=None, detector=None):
+    def __init__(self, camera, calib, rotation, stabilizer=None, detector=None, *,
+                 keep_source=False, detect_obstacles=True):
         self.camera, self.calib, self.rotation = camera, calib, rotation
         self.stabilizer = stabilizer
         self.detector = detector
+        self.keep_source = keep_source
+        self.detect_obstacles = detect_obstacles
+        self.home_side = None
         self.latest = None
         self.held = None
         self.error = None
@@ -252,6 +300,7 @@ class VisionWorker:
 
     def run(self):
         last = 0
+        tracked_side = None
         try:
             if self.rotation is None:
                 decided, size = self._decide_rotation()
@@ -275,13 +324,24 @@ class VisionWorker:
                 began = time.monotonic()
                 image = rotate(frame.to_ndarray(format="bgr24"), self.rotation)
                 scene, marked, label = observe(image, self.calib, stamp,
-                                               detector=self.detector)
+                                               detector=self.detector, home_side=self.home_side,
+                                               detect_obstacles=self.detect_obstacles)
+                scene["vision_timing_ms"] = (round(1000 * (began - stamp)),
+                                             round(1000 * (time.monotonic() - began)))
                 # Merge over-split halves, drop one-frame ghosts and smooth the
                 # centres. Invalid frames do not advance the tracker, so a short
                 # vision gap does not erase blocks that are still there.
                 if self.stabilizer is not None and scene["valid"]:
+                    if tracked_side != scene["home_side"]:
+                        self.stabilizer.reset()
+                        tracked_side = scene["home_side"]
                     scene["blocks"] = self.stabilizer.update(scene["blocks"], stamp)
-                self.latest, self.held = latest_scene(scene, self.held)
+                selected, self.held = latest_scene(scene, self.held)
+                # Hold the previous display together with its scene through a short vision gap.
+                if selected is scene:
+                    if self.keep_source:
+                        scene["source_image"] = image
+                    self.latest = (scene, marked, label)
                 self.stop.wait(max(0., .10 - (time.monotonic() - began)))
         except Exception as error:
             self.error = error
@@ -316,30 +376,28 @@ def motion_safe(policy, scene, velocity, now):
     return max(0., -.548-next_y, next_y-.505) <= violation and policy.safe(velocity, now)
 
 
+def task_vision(args, calib, *, keep_source=False, detect_obstacles=True):
+    camera = UsbCamera(args.scrcpy_dir, max_size=args.max_size)
+    from onnx_blocks import build_detector
+    detector, _label = build_detector(args.detector, args.onnx_model, args.onnx_device)
+    return VisionWorker(camera, calib, args.rotate,
+                        None if args.no_track else BlockStabilizer(), detector,
+                        keep_source=keep_source, detect_obstacles=detect_obstacles)
+
+
 def run(args, calib, drive):
     policy = HybridCompetitionPolicy(duration=DURATION)
-    camera = UsbCamera(args.scrcpy_dir, max_size=args.max_size)
-    detector = None
-    use_onnx = args.detector == "onnx" or (args.detector == "auto"
-                                           and Path(args.onnx_model).exists())
-    if use_onnx:
-        from onnx_blocks import OnnxBlockDetector
-        detector = OnnxBlockDetector(args.onnx_model, imgsz=(1280, 960),
-                                     device=args.onnx_device)
-        print(f"红块检测：ONNX {args.onnx_model}（后端 {detector.provider}）", flush=True)
-    else:
-        if args.detector == "onnx":
-            raise RuntimeError(f"找不到模型 {args.onnx_model}")
-        print("红块检测：HSV（未找到模型或指定了 hsv）", flush=True)
-    vision = VisionWorker(camera, calib, args.rotate,
-                          None if args.no_track else BlockStabilizer(), detector)
-    link = ChassisLink(drive.port, layout=f"{drive.layout} 1 1 1 1", strict=True) if drive else None
+    vision = task_vision(args, calib)
+    camera = vision.camera
+    link = (ChassisLink(drive.port, layout=f"{drive.layout} 1 1 1 1", strict=True,
+                        require_speed_stream=True, stream_pipeline=True) if drive else None)
     started = None
+    policy_side = None
     last_scene = None
     stable = 0
     last_label = None
-    active_velocity = None
-    active_until = 0.
+    queued_output = None
+    board_verified = False
     try:
         camera.start()
         vision.thread.start()
@@ -356,17 +414,28 @@ def run(args, calib, drive):
                 raise RuntimeError(camera.error or vision.error)
             if link and link.error:
                 raise ChassisError(link.error)
+            if link and link.ready and not board_verified:
+                drive.verify_board(link.speed_info)
+                board_verified = True
             snapshot = vision.latest
             scene, frame, label = snapshot if snapshot is not None else (None, waiting, "waiting for camera")
             if scene is None and now > camera_deadline:
                 raise RuntimeError("未收到手机画面")
             valid = fresh(scene, now)
             if scene is not None and scene is not last_scene:
-                if started is not None and valid and pose_changed_too_fast(scene, last_scene):
-                    raise RuntimeError("位姿跳变或识别帧间隔过长，任务终止")
+                if valid:
+                    side = scene["home_side"]
+                    if started is not None and side != vision.home_side:
+                        raise RuntimeError("起跑侧识别不一致，任务终止")
+                    if started is not None and pose_changed_too_fast(scene, last_scene):
+                        raise RuntimeError("位姿跳变或识别帧间隔过长，任务终止")
+                    if started is None and policy_side != side:
+                        policy = HybridCompetitionPolicy(duration=DURATION)
+                        policy_side = side
                 if started is None and valid and can_start(scene):
                     contiguous = fresh(last_scene, now)
                     steady = (contiguous
+                              and scene["home_side"] == last_scene["home_side"]
                               and math.dist(scene["robot"][:2], last_scene["robot"][:2]) < .01
                               and abs(scene["robot"][2] - last_scene["robot"][2]) < .10)
                     stable = stable + 1 if steady else 1
@@ -381,16 +450,17 @@ def run(args, calib, drive):
                 stable = 0
                 if scene is not None and scene["valid"] and policy.valid:
                     label = "vision stale"
-            usable = valid and now - scene["stamp"] < MAX_AGE - PULSE_MS / 1000 - SEND_MARGIN
+            usable = valid and now - scene["stamp"] < MAX_AGE - STREAM_RESERVE
             ready = usable and stable >= 3 and (link is None or link.ready and not link.busy)
             if started is None:
                 if ready:
-                    label = "SPACE to start" if link else "PREVIEW | SPACE to start policy"
+                    side = scene["home_side"].upper()
+                    label = f"{side} | SPACE to start" if link else f"PREVIEW | {side} | SPACE to start policy"
                 elif valid:
                     if not usable:
                         label = "waiting for newer frames"
                     elif not can_start(scene):
-                        label = "place robot in blue start zone, facing yellow"
+                        label = "place robot near either end, facing the center line"
                     elif stable < 3:
                         label = f"waiting for stable ID {TAG_ID}"
                     else:
@@ -402,32 +472,63 @@ def run(args, calib, drive):
                 if not valid or (link and not link.ready):
                     raise RuntimeError(f"任务终止，视觉或底盘失效：{label}")
                 target = policy.step(now)
-                if link and active_velocity and now < active_until:
-                    if not any(target) or not motion_safe(policy, scene, active_velocity, now):
-                        link.stop()
-                        active_velocity = None
-                if link and not link.busy:
+                motion_label = ""
+                if link:
                     command, estimated = drive.convert(target)
                     latest = vision.latest[0]
                     after_plan = time.monotonic()
                     end = min(scene["stamp"] + MAX_AGE, started + DURATION)
-                    if (any(command) and fresh(latest, after_plan)
-                            and motion_safe(policy, scene, estimated, after_plan)):
-                        if link.pulse(*command, PULSE_MS, send_by=end - PULSE_MS / 1000 - SEND_MARGIN):
-                            active_velocity, active_until = estimated, end
-                label = f"{'RUN' if link else 'PREVIEW'} | {policy.phase} | {now-started:.1f}s"
+                    active_outputs = set(link.stream_outputs)
+                    if queued_output is not None:
+                        active_outputs.add(queued_output)
+                    frame_ready = (after_plan + STREAM_RESERVE < end and fresh(latest, after_plan)
+                                   and latest["home_side"] == vision.home_side)
+                    allowed = (frame_ready and any(command)
+                               and motion_safe(policy, scene, estimated, after_plan)
+                               and all(motion_safe(policy, scene, drive.estimate(output), after_plan)
+                                       for output in active_outputs - {command}))
+                    if not allowed:
+                        if not frame_ready:
+                            motion_label = " | HOLD: frame timing"
+                        elif not any(command):
+                            motion_label = " | HOLD: policy stop"
+                        else:
+                            motion_label = " | HOLD: motion safety"
+                        if queued_output is not None:
+                            link.stop()
+                            queued_output = None
+                            policy.smoother.reset()
+                    elif vision.latest[0] is scene and link.stream(*command, valid_until=end):
+                        queued_output = command
+                    else:
+                        motion_label = " | WAIT: next command"
+                label = f"{'RUN' if link else 'PREVIEW'} | {policy.phase} | {now-started:.1f}s{motion_label}"
             display = cv2.resize(frame, (720, 720), interpolation=cv2.INTER_AREA)
+            if valid:
+                scale = display.shape[0] / 1.2
+                direction = -1 if scene["home_side"] == "yellow" else 1
+                for obstacle in policy.obstacles:
+                    x = .6 + direction * obstacle.x
+                    y = .6 - direction * obstacle.y - scene["seam_bias"]
+                    cv2.rectangle(display, (round((x - obstacle.hx) * scale), round((y - obstacle.hy) * scale)),
+                                  (round((x + obstacle.hx) * scale), round((y + obstacle.hy) * scale)),
+                                  (255, 100, 0), 2)
             cv2.rectangle(display, (0, 0), (720, 34), (20, 20, 20), -1)
             cv2.putText(display, label, (8, 23), cv2.FONT_HERSHEY_SIMPLEX, .56, (240, 240, 240), 1)
             cv2.imshow(WINDOW, display)
             key = cv2.waitKey(1) & 0xff
             if key in (27, ord("q"), ord("Q")) or cv2.getWindowProperty(WINDOW, cv2.WND_PROP_VISIBLE) < 1:
                 return 0
-            if (key == ord(" ") and ready and started is None
-                    and fresh(vision.latest[0], time.monotonic())):
-                started = time.monotonic()
-                policy.start_time = started
-                print("任务开始，90 秒计时")
+            if key == ord(" ") and ready and started is None:
+                latest = vision.latest[0]
+                now = time.monotonic()
+                if (fresh(latest, now) and latest["home_side"] == scene["home_side"]
+                        and can_start(latest)):
+                    vision.home_side = scene["home_side"]
+                    started = now
+                    policy.start_time = started
+                    color = "蓝区" if vision.home_side == "blue" else "黄区"
+                    print(f"任务开始，己方为{color}，90 秒计时")
             status = (policy.phase, policy.reason) if started is not None else label
             if status != last_label:
                 print(status, flush=True)
@@ -447,7 +548,7 @@ def run(args, calib, drive):
 def main():
     parser = argparse.ArgumentParser(description=__doc__)
     modes = parser.add_mutually_exclusive_group()
-    modes.add_argument("--configure", action="store_true", help="保存本车实测运动参数")
+    modes.add_argument("--configure", action="store_true", help="用相机和四轮编码器自动标定车体运动")
     modes.add_argument("--preview", action="store_true", help="运行视觉与策略，禁用串口输出")
     parser.add_argument("--config", type=Path, default=HERE / "task_drive.json")
     parser.add_argument("--calibration", type=Path, default=HERE / "field_calib.json")
@@ -467,13 +568,17 @@ def main():
     args = parser.parse_args()
     args.rotate = None if args.rotate == "auto" else int(args.rotate)
     try:
-        if args.configure:
-            configure(args.config)
-            return 0
         calib = load_calibration(args.calibration)
+        if args.configure:
+            return configure(args, calib)
         if not args.preview and not args.config.is_file():
             raise ValueError("缺少本车运动参数，请在日常工具选 11 保存本车配置")
-        drive = None if args.preview else DriveConfig(**json.loads(args.config.read_text(encoding="utf-8")))
+        drive = None
+        if not args.preview:
+            settings = json.loads(args.config.read_text(encoding="utf-8"))
+            if "forward_counts_per_mm" not in settings:
+                raise ValueError("旧版 PWM 参数需要升级，请选 11 自动标定编码器")
+            drive = DriveConfig(**settings)
         return run(args, calib, drive)
     except (RuntimeError, OSError, ValueError, TypeError, KeyError, cv2.error) as error:
         print(f"任务退出：{error}", file=sys.stderr)

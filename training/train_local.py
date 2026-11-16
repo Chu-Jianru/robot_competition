@@ -40,6 +40,46 @@ def check_torch():
     return torch
 
 
+def dataset_fingerprint(yolo_dir: Path) -> str:
+    """Fingerprint the exported dataset so a stale label cache can be spotted."""
+    import hashlib
+    h = hashlib.sha256()
+    for split in ("train", "val"):
+        for kind in ("images", "labels"):
+            folder = yolo_dir / kind / split
+            if not folder.is_dir():
+                h.update(f"{kind}/{split}:missing".encode())
+                continue
+            files = sorted(p for p in folder.iterdir() if p.is_file())
+            h.update(f"{kind}/{split}:{len(files)}".encode())
+            for p in files:
+                st = p.stat()
+                h.update(f"{p.name}:{st.st_size}:{st.st_mtime_ns}".encode())
+    return h.hexdigest()
+
+
+def ensure_dataset(yolo_dir: Path) -> None:
+    """Re-export the YOLO set when labels.json is newer than the export.
+
+    The exporter is the single source of truth: it copies reviewed boxes from
+    labels.json. Running it here means "train" always means "train on whatever
+    is currently annotated", instead of silently training on an old export.
+    """
+    import subprocess
+    labels = yolo_dir.parent / "frames" / "labels.json"
+    export_json = yolo_dir / "export.json"
+    if not labels.exists():
+        return
+    if export_json.exists() and export_json.stat().st_mtime >= labels.stat().st_mtime:
+        return
+    print(f"标注 {labels.name} 比导出结果新，先重新导出数据集 …")
+    cmd = [sys.executable, str(ROOT / "windows" / "export_yolo.py"),
+           str(yolo_dir.parent), "--val-every", "5"]
+    code = subprocess.call(cmd, cwd=str(ROOT))
+    if code != 0:
+        raise SystemExit(f"导出数据集失败（返回码 {code}）")
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__,
                                      formatter_class=argparse.RawDescriptionHelpFormatter)
@@ -69,6 +109,15 @@ def main() -> int:
         print(f"找不到数据集 {args.data}；先跑 windows\\export_yolo.py", file=sys.stderr)
         return 2
 
+    # 训练前把标注同步到 yolo 目录，保证“训练”用的是最新标注而不是旧导出。
+    yolo_dir = args.data.parent
+    ensure_dataset(yolo_dir)
+    stale = [p for p in (yolo_dir / "labels").glob("*.cache")]
+    for p in stale:
+        p.unlink(missing_ok=True)
+    print(f"数据集指纹 {dataset_fingerprint(yolo_dir)[:12]}；"
+          f"清理旧缓存 {len(stale)} 个")
+
     from ultralytics import YOLO
 
     model = YOLO(args.weights)
@@ -93,7 +142,10 @@ def main() -> int:
         close_mosaic=20,
     )
 
-    metrics = model.val(data=str(args.data), imgsz=args.imgsz, split="val", device=args.device)
+    # project/name 必须显式给出：缺省时 ultralytics 会在当前工作目录建 runs/detect/，
+    # 在项目根留下一个游离的 runs/ 目录。
+    metrics = model.val(data=str(args.data), imgsz=args.imgsz, split="val", device=args.device,
+                        project=str(HERE / "runs"), name=args.name + "_val", exist_ok=True)
     print("\n=== 验证集 ===")
     print(f"mAP50    {metrics.box.map50:.3f}")
     print(f"mAP50-95 {metrics.box.map:.3f}")

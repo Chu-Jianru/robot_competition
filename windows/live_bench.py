@@ -28,6 +28,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from bench_check import annotate as annotate_bench, find_tag          # noqa: E402
+from daily_tools import menu_text                                     # noqa: E402
 from red_blocks import detect_red_blocks, filter_by_size_mm, load_red_config  # noqa: E402
 from tag_detector import TAG_ID                                      # noqa: E402
 from usb_camera import UsbCamera                                     # noqa: E402
@@ -270,8 +271,9 @@ def main() -> int:
               f"红块 P50 {pct(block_times, 50):.1f} / P95 {pct(block_times, 95):.1f} ms")
         print(f"PC age：P50 {pct(ages, 50):.0f} ms / P95 {pct(ages, 95):.0f} ms")
         print(f"结果文件：{out_dir}")
-        verdict = "通过" if rate >= args.min_rate else "未通过"
-        print(f"判定：tag 检出率 {rate * 100:.1f}% -> {verdict}")
+        passed = rate >= args.min_rate
+        verdict = "通过" if passed else "未通过"
+        print(menu_text(f"判定：tag 检出率 {rate * 100:.1f}% -> {verdict}", 32 if passed else 31))
         return 0
     finally:
         camera.close()

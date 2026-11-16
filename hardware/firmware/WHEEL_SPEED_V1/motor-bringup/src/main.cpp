@@ -29,6 +29,11 @@ uint32_t physicalBootId = 1;
 constexpr int kStandby = 13;
 constexpr uint32_t kCooldownMs = 1000;
 constexpr uint32_t kLinkTimeoutMs = 1500;
+constexpr uint32_t kHoldTimeoutMs = 250;
+constexpr uint32_t kStreamLeaseMs = 150;
+constexpr int kStreamMaxOutput = 40;
+constexpr int kSpeedStreamMaxDuty = 80;
+constexpr uint32_t kHoldReleaseGuardMs = 60;
 // 调度使用真实经过时间，不靠 delay；修改周期时同时检查测速窗口与故障测试。
 constexpr uint32_t kControlPeriodUs = 10000;
 constexpr uint32_t kControlMaxGapUs = 50000;
@@ -43,11 +48,10 @@ constexpr uint32_t kCalSimMeasureStartMs = 1000;
 constexpr uint32_t kCalSimRunMs = 1500;
 constexpr uint32_t kCalMeasureWindowMs = 500;
 struct MotorPins { int in1, in2, encA, encB, pwm1, pwm2; };
-// 字段顺序为 IN1、IN2、编码器 A/B、LEDC 通道；接线表按 IN2 在前，不能抄反。
-// 当前版本将 PWM 输出接在 IN1/IN2；驱动板 PWMA/B/C/D 固定接其自身 5V。
+// 从本车 2026-11-16 的 FOUR_V2 镜像核对。字段依次是 IN1/IN2、编码器 A/B、LEDC 通道。
 DRAM_ATTR const MotorPins kMotors[4] = {
-    {21, 19, 22, 23, 0, 1}, {16, 4, 17, 18, 2, 3},
-    {27, 14, 26, 25, 4, 5}, {32, 33, 35, 34, 6, 7}};
+    {22, 23, 21, 19, 0, 1}, {17, 18, 16, 4, 2, 3},
+    {26, 25, 27, 14, 4, 5}, {32, 33, 35, 34, 6, 7}};
 int activeChannel = -1;  // -1=停止；0..3=单路 A..D；-2=四轮联动。
 mecanum::Layout wheelLayout;
 bool layoutConfigured = false;
@@ -97,9 +101,16 @@ const char* lastFaultReason = "none";
 bool telemEnabled = false;
 uint32_t lastTelemMs = 0;
 
-// running 仅覆盖定时开环/闭环动作；标定独立使用 calibrating。
+// running 覆盖开环/闭环动作；标定独立使用 calibrating。
 // 标定期间的失联保护由 serviceConnections 的 ownerContactAt 执行。
 bool running = false;
+bool holdMotion = false;
+bool manualMotion = false;
+bool streamMotion = false;
+bool streamLocked = false;
+int streamWheels[4] = {};
+bool holdReleased = false;
+int32_t holdAxes[3] = {};
 bool hasStopped = false;
 uint32_t startedAt = 0;
 uint32_t durationMs = 0;
@@ -197,6 +208,10 @@ void stopMotor(uint32_t now) {
     stoppedAt = now;
   }
   running = false;
+  holdMotion = false;
+  manualMotion = false;
+  streamMotion = false;
+  holdReleased = false;
   activeChannel = -1;
 }
 
@@ -454,7 +469,12 @@ void serviceDeadline(uint32_t now) {
   if (!running) return;
   const char* reason = nullptr;
   if (static_cast<uint32_t>(now - startedAt) >= durationMs) {
-    reason = "STOPPED timer";
+    if (streamMotion) {
+      streamLocked = true;
+      reason = "STOPPED stream_timeout";
+    } else {
+      reason = manualMotion ? "STOPPED manual_timeout" : "STOPPED timer";
+    }
   } else if (static_cast<uint32_t>(now - lastContactAt) >= kLinkTimeoutMs) {
     reason = "STOPPED link_timeout";
   }
@@ -492,6 +512,7 @@ void selectMode(RuntimeMode mode, uint32_t now) {
   // Always disable physical output before rotating the simulation session.
   stopMotor(now);
   clearFault();  // 切换模式同样解除闭锁，与设计 §5.6 一致。
+  streamLocked = false;
   telemEnabled = false;  // 模式切换后必须由新会话重新开启遥测。
   runtimeMode = mode;
   layoutConfigured = false;  // 重连/切换后必须重新确认轮位，不自动复用上一位操作者的设置。
@@ -500,7 +521,7 @@ void selectMode(RuntimeMode mode, uint32_t now) {
   // There is no HELLO request in protocol v1. Motor mode suppresses this hello.
   initializeDry(now);
   if (mode == RuntimeMode::MotorA) {
-    reply.println("MOTOR_A_TEST: four-channel bench FOUR_V1; stopped by default.");
+    reply.println("MOTOR_A_TEST: four-channel bench FOUR_V2; stopped by default.");
   } else if (mode == RuntimeMode::Chassis) {
     reply.println("CHASSIS: MECANUM_V2 unified forward; stopped; configure LAYOUT before MECANUM.");
   }
@@ -614,9 +635,14 @@ void serviceControl(uint32_t nowUs) {
     else if (difference < -maxStep) rampedTarget[i] -= maxStep;
     else rampedTarget[i] = goalTarget[i];
 
+    const float previousDuty = appliedDuty[i];
     appliedDuty[i] = wheelPids[i].step(rampedTarget[i], measuredSpeed[i], vmax,
-                                       calibrationData.wheel[i], closedGains, dt);
-    setMotorForwardPercent(i, static_cast<int>(lroundf(appliedDuty[i])));
+                                      calibrationData.wheel[i], closedGains, dt,
+                                      streamMotion ? kSpeedStreamMaxDuty : 100.0f,
+                                      streamMotion ? 0.05f * vmax : 0.0f);
+    const int output = static_cast<int>(lroundf(appliedDuty[i]));
+    if (streamMotion && lroundf(previousDuty) * output < 0) setMotorForwardPercent(i, 0);
+    setMotorForwardPercent(i, output);
 
     // 判据用本周期实际占空比；任一路非 None 就整体停车闭锁，故障原因取第一路。
     const wheel_speed::Fault wheelFault = faultMonitor[i].update(
@@ -632,6 +658,15 @@ void serviceControl(uint32_t nowUs) {
     closedLoopActive = false;
     reply.printf("FAULT %s\r\n", lastFaultReason);
   }
+}
+
+void beginClosedLoop(uint32_t now) {
+  stopMotor(now);
+  snapshotEncoders(lastEncoderCount);
+  lastControlUs = micros();
+  closedLoopActive = running = true;
+  activeChannel = -2;
+  digitalWrite(kStandby, HIGH);
 }
 
 // SPEED/SPEEDW 的公共启动路径；percent 为已混控或直控的四轮百分比。
@@ -665,17 +700,11 @@ bool startClosedLoop(const int32_t percent[4], uint32_t duration, uint32_t now) 
     return false;
   }
 
-  stopMotor(now);  // 只有通过全部校验后才清零输出并重新装载闭环状态。
+  beginClosedLoop(now);
   for (int i = 0; i < 4; ++i)
     goalTarget[i] = (static_cast<float>(percent[i]) / 100.0f) * calibrationData.vmax;
-  snapshotEncoders(lastEncoderCount);
-  lastControlUs = micros();
-  closedLoopActive = true;
-  running = true;
-  activeChannel = -2;  // 与开环四路联动使用同一状态值。
   startedAt = lastContactAt = now;
   durationMs = duration;
-  digitalWrite(kStandby, HIGH);  // 初始占空比为 0，四路准备好后再统一使能。
   reply.printf("SPEED_RUN A=%.0f B=%.0f C=%.0f D=%.0f duration=%lu\r\n",
                goalTarget[0], goalTarget[1], goalTarget[2], goalTarget[3],
                static_cast<unsigned long>(durationMs));
@@ -683,7 +712,98 @@ bool startClosedLoop(const int32_t percent[4], uint32_t duration, uint32_t now) 
 }
 
 // ---- 6. 命令解析（先校验，后修改输出状态）----
+int speedStreamLimit() {
+  if (!calibrationData.valid || !(calibrationData.vmax > 0.0f) ||
+      !isfinite(calibrationData.vmax)) return 0;
+  return static_cast<int>(fminf(1000000.0f, 0.80f * calibrationData.vmax));
+}
+
+void handleStream(const char* text, uint32_t now, bool wheelSpeed = false) {
+  int32_t values[4];
+  if (!parseNumbers(text, values, 4) || values[3] < 1 ||
+      static_cast<uint32_t>(values[3]) > kStreamLeaseMs) {
+    reply.println("ERROR invalid stream target or lease");
+    return;
+  }
+  const int limit = wheelSpeed ? speedStreamLimit() : kStreamMaxOutput;
+  if (limit == 0) {
+    reply.println("ERROR wheel speed calibration required");
+    return;
+  }
+  int total = 0;
+  for (int i = 0; i < 3; ++i) {
+    if (values[i] < -limit || values[i] > limit) {
+      reply.println("ERROR stream output exceeds limit");
+      return;
+    }
+    total += abs(static_cast<int>(values[i]));
+  }
+  if (total == 0 || total > limit) {
+    reply.println("ERROR stream output must be nonzero and within limit");
+    return;
+  }
+  if (!layoutConfigured || faultLatched || streamLocked ||
+      (running && (!streamMotion || closedLoopActive != wheelSpeed))) {
+    reply.println("ERROR stream unavailable; check mode, layout and stopped state");
+    return;
+  }
+  if (wheelSpeed) {
+    if (!streamMotion) beginClosedLoop(now);
+    int targets[4];
+    mecanum::compose(values[0], values[1], values[2], targets);
+    for (int i = 0; i < 4; ++i) goalTarget[wheelLayout.channel[i]] = targets[i];
+    streamMotion = true;
+    startedAt = lastContactAt = ownerContactAt = now;
+    durationMs = values[3];
+    reply.println("STREAM_OK");
+    return;
+  }
+  int output[4];
+  mecanum::mix(values[0], values[1], values[2], wheelLayout, output);
+  bool resetOutputs = !streamMotion;
+  for (int i = 0; i < 4; ++i) resetOutputs |= streamWheels[i] * output[i] < 0;
+  if (resetOutputs) {
+    // A wheel must pass through zero PWM before applying reverse polarity.
+    digitalWrite(kStandby, LOW);
+    for (int i = 0; i < 4; ++i) setMotorForwardPercent(i, 0);
+  }
+  for (int i = 0; i < 4; ++i) setMotorForwardPercent(i, output[i]);
+  memcpy(streamWheels, output, sizeof(streamWheels));
+  activeChannel = -2;
+  startedAt = lastContactAt = ownerContactAt = now;
+  durationMs = values[3];
+  running = streamMotion = true;
+  if (resetOutputs) digitalWrite(kStandby, HIGH);
+  reply.println("STREAM_OK");
+}
+
 void handleChassis(const char* line, uint32_t now) {
+  if (strncmp(line, "SPEED_STREAM ", 13) == 0) {
+    handleStream(line + 13, now, true);
+    return;
+  }
+  if (strcmp(line, "SPEED_INFO") == 0) {
+    reply.printf("SPEED_INFO %d %d %d %d %d\r\n", speedStreamLimit(), calibrationData.wheel[0].sign,
+                 calibrationData.wheel[1].sign, calibrationData.wheel[2].sign, calibrationData.wheel[3].sign);
+    return;
+  }
+  if (strcmp(line, "ENC_SNAPSHOT") == 0) {
+    int32_t counts[4];
+    snapshotEncoders(counts);
+    reply.printf("ENC_SNAPSHOT %ld %ld %ld %ld\r\n", static_cast<long>(counts[0]),
+                 static_cast<long>(counts[1]), static_cast<long>(counts[2]), static_cast<long>(counts[3]));
+    return;
+  }
+  if (strncmp(line, "MECANUM_STREAM ", 15) == 0) {
+    handleStream(line + 15, now);
+    return;
+  }
+  if (strcmp(line, "MECANUM_KEEP") == 0) {
+    // A delayed renewal must never re-energize a stopped chassis.
+    if (manualMotion) startedAt = lastContactAt = ownerContactAt = now;
+    reply.println(manualMotion ? "MANUAL_OK" : "MANUAL_IDLE");
+    return;
+  }
   if (strcmp(line, "LAYOUT?") == 0) { printLayout(); return; }
   if (strncmp(line, "LAYOUT ", 7) == 0) {
     if (running) { reply.println("ERROR stop before changing layout"); return; }
@@ -703,6 +823,7 @@ void handleChassis(const char* line, uint32_t now) {
       }
     }
     wheelLayout = candidate;
+    holdReleased = false;
     layoutConfigured = true;
     printLayout();
     return;
@@ -751,38 +872,93 @@ void handleChassis(const char* line, uint32_t now) {
     startClosedLoop(percent, static_cast<uint32_t>(values[count-1]), now);
     return;
   }
-  const bool mix = strncmp(line, "MECANUM ", 8) == 0;
+  const bool manual = strncmp(line, "MECANUM_MANUAL ", 15) == 0;
+  const bool hold = strncmp(line, "MECANUM_HOLD ", 13) == 0;
+  const bool leased = manual || hold;
+  const bool mix = leased || strncmp(line, "MECANUM ", 8) == 0;
   const bool direct = strncmp(line, "WHEELS ", 7) == 0;
   int32_t values[5] = {};
-  const int count = mix ? 4 : 5;
-  if ((!mix && !direct) || !parseNumbers(line + (mix ? 8 : 7), values, count)) {
-    reply.println("ERROR use MECANUM <forward> <left> <ccw> <ms> or WHEELS <A> <B> <C> <D> <ms>");
+  const int axes = mix ? 3 : 4;
+  const int prefix = manual ? 15 : (hold ? 13 : (mix ? 8 : 7));
+  if ((!mix && !direct) || !parseNumbers(line + prefix, values, axes + (leased ? 0 : 1))) {
+    reply.println("ERROR use MECANUM, MECANUM_HOLD, MECANUM_MANUAL or WHEELS with the required arguments");
     return;
   }
-  for (int i = 0; i < count-1; ++i) {
+  for (int i = 0; i < axes; ++i) {
     if (values[i] < -100 || values[i] > 100) { reply.println("ERROR chassis percent must be -100..100"); return; }
   }
-  if (values[count-1] < 1) { reply.println("ERROR time must be 1..2147483647 ms"); return; }
+  if (!leased && values[axes] < 1) { reply.println("ERROR time must be 1..2147483647 ms"); return; }
+  if (leased && (values[0] != 0) + (values[1] != 0) + (values[2] != 0) > 1) {
+    reply.println("ERROR hold requires a single axis");
+    return;
+  }
   if (mix && !layoutConfigured) { reply.println("ERROR confirm X roller layout and LAYOUT first"); return; }
   int output[4];
   if (mix) mecanum::mix(values[0], values[1], values[2], wheelLayout, output);
   else for (int i = 0; i < 4; ++i) output[i] = values[i];
+  if (manual) {
+    if (running && !manualMotion) { reply.println("ERROR busy; STOP before manual drive"); return; }
+    if (output[0] == 0 && output[1] == 0 && output[2] == 0 && output[3] == 0) {
+      stopMotor(now);
+      reply.println("MANUAL_OK");
+      return;
+    }
+    if (faultLatched) { reply.println("ERROR fault latched; send STOP"); return; }
+    bool sameDirection = manualMotion;
+    for (int i = 0; i < 3; ++i) {
+      sameDirection &= (values[i] > 0) == (holdAxes[i] > 0) &&
+                       (values[i] < 0) == (holdAxes[i] < 0);
+    }
+    // Break before make on direction changes: disable the common driver and clear
+    // every PWM output before installing the next direction and enabling STBY.
+    if (!sameDirection) stopMotor(now);
+    for (int i = 0; i < 4; ++i) setMotorForwardPercent(i, output[i]);
+    memcpy(holdAxes, values, sizeof(holdAxes));
+    activeChannel = -2;
+    startedAt = lastContactAt = ownerContactAt = now;
+    durationMs = kHoldTimeoutMs;
+    running = manualMotion = true;
+    if (!sameDirection) digitalWrite(kStandby, HIGH);
+    reply.println("MANUAL_OK");
+    return;
+  }
   if (output[0] == 0 && output[1] == 0 && output[2] == 0 && output[3] == 0) {
     stopMotor(now);
     reply.println("STOPPED command");
     printEncoder();
     return;
   }
+  if (hold && faultLatched) { reply.println("ERROR fault latched; send STOP"); return; }
+  if (hold && holdMotion) {
+    for (int i = 0; i < 3; ++i) {
+      if ((values[i] > 0) != (holdAxes[i] > 0) || (values[i] < 0) != (holdAxes[i] < 0)) {
+        reply.println("ERROR stop before changing hold direction");
+        return;
+      }
+    }
+    for (int i = 0; i < 4; ++i) setMotorForwardPercent(i, output[i]);
+    startedAt = lastContactAt = ownerContactAt = now;
+    reply.println("HOLD_OK");
+    return;
+  }
   // 这是定时动作接口，不把重复按钮排成长队，也不在运行中突然反向。
   if (running) { reply.println("ERROR busy; STOP before next chassis motion"); return; }
-  if (hasStopped && static_cast<uint32_t>(now-stoppedAt) < kCooldownMs) {
+  const bool quickRestart = hold && holdReleased;
+  const uint32_t cooldown = quickRestart ? kHoldReleaseGuardMs : kCooldownMs;
+  if (hasStopped && static_cast<uint32_t>(now-stoppedAt) < cooldown) {
+    if (quickRestart) { reply.println("ERROR hold release guard"); return; }
     reply.println("ERROR wait 1 second after stop"); return;
   }
   stopMotor(now);
   for (int i = 0; i < 4; ++i) setMotorForwardPercent(i, output[i]);
   activeChannel = -2;  // 四路联动；与单电机 A/B/C/D 的状态区分。
   startedAt = lastContactAt = now;
-  durationMs = static_cast<uint32_t>(values[count-1]);
+  durationMs = hold ? kHoldTimeoutMs : static_cast<uint32_t>(values[axes]);
+  holdMotion = hold;
+  if (hold) {
+    memcpy(holdAxes, values, sizeof(holdAxes));
+    ownerContactAt = now;
+  }
   running = true;
   digitalWrite(kStandby, HIGH);  // 八个输出全部准备好后再统一打开驱动。
   reply.printf("CHASSIS_RUN A=%d B=%d C=%d D=%d duration=%lu\r\n", output[0], output[1], output[2], output[3], static_cast<unsigned long>(durationMs));
@@ -795,7 +971,14 @@ void handleCommand(char* line, uint32_t now) {
     return;
   }
   if (strcmp(line, "CAPS") == 0) {
-    reply.println("CAPS MOTORS=ABCD PINS=FOUR_V1");
+    reply.println("CAPS MOTORS=ABCD PINS=FOUR_V2");
+    reply.println("FIRMWARE VERSION=V3");
+    reply.printf("CHASSIS_HOLD LEASE_MS=%lu\r\n", static_cast<unsigned long>(kHoldTimeoutMs));
+    reply.printf("CHASSIS_HOLD_RELEASE GUARD_MS=%lu\r\n", static_cast<unsigned long>(kHoldReleaseGuardMs));
+    reply.printf("CHASSIS_MANUAL LEASE_MS=%lu\r\n", static_cast<unsigned long>(kHoldTimeoutMs));
+    reply.printf("CHASSIS_STREAM LEASE_MS=%lu\r\n", static_cast<unsigned long>(kStreamLeaseMs));
+    reply.printf("CHASSIS_SPEED_STREAM LEASE_MS=%lu\r\n", static_cast<unsigned long>(kStreamLeaseMs));
+    reply.printf("CHASSIS_SPEED_PWM_MAX=%d\r\n", kSpeedStreamMaxDuty);
     reply.println("CHASSIS_CAPS API=MECANUM_V2 MIX=X UNITS=PERCENT FORWARD=UNIFIED");
     reply.println("CHASSIS_CAPS2 API=WHEEL_SPEED_V1 CLOSED=1 CAL=1 TELEM=1 PID=MILLI");
     reply.printf("LINK_CAPS USB=1 BT=%s OWNER=EXCLUSIVE NAME=PushRobot-ESP32\r\n", bluetoothReady ? "SPP" : "OFF");
@@ -941,6 +1124,10 @@ void handleCommand(char* line, uint32_t now) {
     reply.println("ENC [channel] | ENCZERO [channel|ALL] | STOP (all) | PING | STATUS");
     reply.println("JOG/WHEELS forward normalized: positive=forward, negative=backward; POLARITY reads electrical mapping");
     reply.println("CHASSIS: LAYOUT <FL/FR/RL/RR e.g.ABCD> <signs> | LAYOUT? | WHEELS A B C D ms | MECANUM forward left ccw ms");
+    reply.println("CHASSIS hold: MECANUM_HOLD forward left ccw (renew within 250 ms, STOP HOLD on release)");
+    reply.println("CHASSIS manual: MECANUM_MANUAL forward left ccw (one axis; all zero stops); MECANUM_KEEP within 250 ms");
+    reply.println("CHASSIS stream: MECANUM_STREAM forward left ccw lease_ms (1..150 ms, total output <= 40); STOP cancels");
+    reply.println("CHASSIS wheel speed: SPEED_INFO | ENC_SNAPSHOT | SPEED_STREAM forward left ccw lease_ms (counts/s)");
     reply.println("CHASSIS closed loop (needs calibration): SPEED x y z ms | SPEEDW A B C D ms");
     reply.println("CHASSIS tuning: PID <kp_milli 0..10000> <ki_milli 0..10000> <limit 10..100> | PID? | SAVE");
     reply.println("CHASSIS telemetry: TELEM 0|1 (20 Hz TLM) | calibration: CAL | CAL? | CAL RESET");
@@ -950,7 +1137,11 @@ void handleCommand(char* line, uint32_t now) {
   // 正在进行的测量窗口。STOP 仍可中止标定（在下面单独处理）。
   const bool motionCommand =
       strncmp(line, "SPEED ", 6) == 0 || strncmp(line, "SPEEDW ", 7) == 0 ||
-      strncmp(line, "MECANUM ", 8) == 0 || strncmp(line, "WHEELS ", 7) == 0 ||
+      strncmp(line, "MECANUM ", 8) == 0 || strncmp(line, "MECANUM_HOLD ", 13) == 0 ||
+      strncmp(line, "MECANUM_MANUAL ", 15) == 0 ||
+      strncmp(line, "MECANUM_STREAM ", 15) == 0 ||
+      strncmp(line, "SPEED_STREAM ", 13) == 0 ||
+      strncmp(line, "WHEELS ", 7) == 0 ||
       strcmp(line, "JOG") == 0 || strncmp(line, "JOG ", 4) == 0;
   if (calibrating && motionCommand) {
     reply.println("ERROR busy; calibration running");
@@ -966,6 +1157,21 @@ void handleCommand(char* line, uint32_t now) {
     dryCore.feed(reinterpret_cast<const uint8_t*>(line), strlen(line), now);
     const uint8_t newline = '\n';
     dryCore.feed(&newline, 1, now);
+    return;
+  }
+  if (runtimeMode == RuntimeMode::Chassis && strcmp(line, "STOP HOLD") == 0) {
+    if (calibrating || (running && !holdMotion)) {
+      reply.println("ERROR hold release requires hold motion");
+      return;
+    }
+    if (holdMotion) {
+      // Drop STBY and clear PWM on release. Only another HOLD can use the short guard.
+      stopMotor(now);
+      holdReleased = true;
+      reply.println("STOPPED hold_release");
+    } else {
+      reply.println("STOPPED command");
+    }
     return;
   }
   if (strcmp(line, "STOP") == 0) {
@@ -1140,6 +1346,7 @@ void dispatchCommand(char* line, ControlPort source, uint32_t now) {
     reply.println("ERROR select MODE before control");
   } else {
     if (mode) controlOwner = source;
+    if (stop && controlOwner != ControlPort::None && controlOwner != source) streamLocked = true;
     if (controlOwner == source && (mode || strcmp(line, "PING") == 0 || strcmp(line, "STATUS") == 0))
       ownerContactAt = now;
     handleCommand(line, now);

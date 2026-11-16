@@ -26,8 +26,8 @@ TELEMETRY_FIELDS = 13
 class ChassisLink(MotorLink):
     """能力由 CAPS2 确认；支持闭环与标定有效是两个独立条件。"""
 
-    def __init__(self, **kwargs):
-        super().__init__(mode="CHASSIS", require_profile="FOUR_V1", **kwargs)
+    def __init__(self, *, require_profile=("FOUR_V1", "FOUR_V2"), **kwargs):
+        super().__init__(mode="CHASSIS", require_profile=require_profile, **kwargs)
         self.layout_confirmed = False
         self.pending_layout = None
         self._reset_closed_loop()
@@ -41,6 +41,12 @@ class ChassisLink(MotorLink):
         self.cal_wheels = {}
         self.pid_values = None
         self._last_fault = None
+        self._calibrating = False
+
+    def heartbeat_command(self):
+        # A PONG keeps ownership alive without the six-line STATUS reply.
+        # Progress and the final result are sent by the firmware on their own.
+        return "PING" if self._calibrating else super().heartbeat_command()
 
     def connect(self, port):
         self.layout_confirmed = False
@@ -70,6 +76,8 @@ class ChassisLink(MotorLink):
             self.layout_confirmed = False
             self.pending_layout = None
             self._reset_closed_loop()
+        elif line.startswith(("ERROR ", "CAL DONE ", "CAL FAIL ")) or line == "STOPPED command":
+            self._calibrating = False
         match = LAYOUT_ACK.fullmatch(line)
         if match:
             received = (match[1], tuple(int(match[i]) for i in range(2, 6)))
@@ -105,6 +113,7 @@ class ChassisLink(MotorLink):
             # The firmware invalidates the stored calibration before it prints
             # CAL START; closed-loop motion must stay disabled for the whole run.
             self.cal_valid = False
+            self._calibrating = True
             self.events.put(("cal_status", self._cal_status()))
             self.events.put(("cal_progress", "start"))
             return
@@ -227,9 +236,10 @@ class ChassisLink(MotorLink):
             raise ValueError("当前固件不支持轮速闭环，请更新固件")
         with self._lock:
             now = time.monotonic()
-            if not self._ready or now < self._next_jog:
+            if not self._ready or self._calibrating or now < self._next_jog:
                 return False
             self._commands.append("CAL")
+            self._calibrating = True
             self._next_jog = now + 1.1
             return True
 

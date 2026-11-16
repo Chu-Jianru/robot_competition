@@ -4,16 +4,13 @@
 "场地视图"，之后所有几何量都以场地毫米为基准，不需要相机内参。
 
 用法：
-    # 1) 用一张拍好的原图点四个角（顺序：左上、右上、右下、左下，按场地实际方位）
+    # 1) 用一张拍好的原图点四个地面内角，顺序不限
     python windows/field_view.py calibrate windows/captures/xxx_raw.png --out windows/field_calib.json
 
     # 2) 用已保存的标定预览效果
     python windows/field_view.py preview windows/captures/xxx_raw.png --config windows/field_calib.json
 
-角度约定：场地坐标 x 向右（东），y 向上（北为正，与比赛约定一致）。
-
-注意：俯视正对场地时四角顺序为 场地左上→右上→右下→左下。若相机方向旋转，
-按"画面上看到的顺序"点，脚本会把图像坐标换算到场地坐标时保持一致。
+按蓝黄地面分界确定场地方向，校正图为黄上蓝下。场地坐标 x 向右（东），y 向上（北）。
 """
 
 from __future__ import annotations
@@ -26,17 +23,43 @@ from pathlib import Path
 import cv2
 import numpy as np
 
+from daily_tools import menu_text
+from field_vision import HSV, find_seam
+
 FIELD_MM = 1200.0
 DEFAULT_SIZE = 960          # 校正后边长（像素）；1.25 mm/px
-CORNER_ORDER = ("左上", "右上", "右下", "左下")
 
 
 @dataclass
 class FieldCalibration:
-    corners: np.ndarray      # (4, 2) 原始画面中的像素坐标，顺序 左上/右上/右下/左下
+    corners: np.ndarray      # 原图像素，依次对应校正图的左上、右上、右下、左下
     size: int = DEFAULT_SIZE
     field_mm: float = FIELD_MM
     source_size: tuple[int, int] | None = None   # 标定所用原图 (w, h)
+
+    @classmethod
+    def from_clicks(cls, image, clicks, *, size=DEFAULT_SIZE, field_mm=FIELD_MM):
+        """Order four ground corners and orient the square using the observed seam."""
+        points = np.asarray(clicks, dtype=np.float32)
+        if points.shape != (4, 2) or not np.isfinite(points).all():
+            raise ValueError("请点四个有效的地面内角。")
+        corners = cv2.convexHull(points, clockwise=False).reshape(-1, 2)
+        if len(corners) != 4 or cv2.contourArea(corners, oriented=True) < 100:
+            raise ValueError("四个点未围成场地四边形。请撤销点错的角或重合的点。")
+
+        height, width = image.shape[:2]
+        if np.any(corners < 2) or np.any(corners >= np.array([width, height]) - 2):
+            raise ValueError("请用四个地面内角都完整入镜的原图。")
+        # The hull has the right winding. Only its starting corner is unknown.
+        hsv = cv2.cvtColor(cls(corners).warp(image), cv2.COLOR_BGR2HSV)
+        blue = cv2.inRange(hsv, *HSV["blue"])
+        yellow = cv2.inRange(hsv, *HSV["yellow"])
+        matching_turns = [turns for turns in range(4)
+                          if find_seam(np.rot90(blue, turns), np.rot90(yellow, turns)) is not None]
+        if len(matching_turns) != 1:
+            raise ValueError("无法确认蓝黄分界线。请核对四个地面内角，或重拍清晰的全场原图。")
+        ordered = np.roll(corners, -matching_turns[0], axis=0)
+        return cls(ordered, size=size, field_mm=field_mm, source_size=(width, height))
 
     @property
     def mm_per_px(self) -> float:
@@ -106,48 +129,68 @@ def draw_overlay(view: np.ndarray, calib: FieldCalibration) -> np.ndarray:
     return out
 
 
+def calibrate_image(img: np.ndarray, out_path: Path, window: str,
+                    *, size: int = DEFAULT_SIZE, field_mm: float = FIELD_MM) -> FieldCalibration | None:
+    print("左键点四个地面内角，顺序不限。右键撤销，Q/Esc 返回。")
+
+    clicks: list[tuple[int, int]] = []
+    calib = None
+
+    def on_mouse(event, x, y, _flags, _param):
+        nonlocal calib
+        if event == cv2.EVENT_LBUTTONDOWN and len(clicks) < 4:
+            clicks.append((x, y))
+            if len(clicks) == 4:
+                try:
+                    calib = FieldCalibration.from_clicks(img, clicks, size=size, field_mm=field_mm)
+                    print(menu_text("已确认蓝黄分界线。回车保存，右键撤销。", 32))
+                except ValueError as error:
+                    print(menu_text(str(error), 31))
+        elif event == cv2.EVENT_RBUTTONDOWN and clicks:
+            clicks.pop()
+            calib = None
+
+    cv2.setMouseCallback(window, on_mouse)
+    try:
+        while True:
+            preview = img.copy()
+            for x, y in clicks:
+                cv2.circle(preview, (x, y), 6, (0, 255, 0), 2)
+            if calib is not None:
+                cv2.polylines(preview, [calib.corners.astype(np.int32)], True, (0, 255, 255), 2)
+            cv2.imshow(window, preview)
+            key = cv2.waitKey(20) & 0xFF
+            if key in (ord("q"), ord("Q"), 27) or cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
+                return None
+            if key in (13, 10) and calib is not None:
+                calib.save(out_path)
+                print(menu_text(f"标定已保存到 {out_path}。", 32))
+                return calib
+    finally:
+        if cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) >= 1:
+            cv2.setMouseCallback(window, lambda *_: None)
+
+
 def calibrate(image_path: Path, out_path: Path, size: int, field_mm: float) -> None:
     img = cv2.imread(str(image_path))
     if img is None:
         raise SystemExit(f"读不到图片：{image_path}")
-    print(f"原图 {img.shape[1]}x{img.shape[0]}")
-    print(f"依次点击场地四角：{', '.join(CORNER_ORDER)}（按画面看到的顺序，左键点选，右键撤销，回车确认）")
-
-    clicks: list[tuple[int, int]] = []
     window = "field calibration"
-
-    def on_mouse(event, x, y, _flags, _param):
-        if event == cv2.EVENT_LBUTTONDOWN and len(clicks) < 4:
-            clicks.append((x, y))
-        elif event == cv2.EVENT_RBUTTONDOWN and clicks:
-            clicks.pop()
-
     cv2.namedWindow(window, cv2.WINDOW_NORMAL)
-    cv2.setMouseCallback(window, on_mouse)
-    while True:
-        preview = img.copy()
-        for index, (x, y) in enumerate(clicks):
-            cv2.circle(preview, (x, y), 6, (0, 255, 0), 2)
-            cv2.putText(preview, CORNER_ORDER[index], (x + 8, y - 8),
-                        cv2.FONT_HERSHEY_SIMPLEX, 0.7, (0, 255, 0), 2)
-        if len(clicks) >= 2:
-            cv2.polylines(preview, [np.array(clicks, np.int32)], len(clicks) == 4, (0, 255, 255), 1)
-        cv2.imshow(window, preview)
-        key = cv2.waitKey(20) & 0xFF
-        if key in (13, 10) and len(clicks) == 4:
-            break
-        if key == 27:
-            cv2.destroyAllWindows()
+    try:
+        if calibrate_image(img, out_path, window, size=size, field_mm=field_mm) is None:
             print("已取消四角标定")
             raise SystemExit(130)
-    cv2.destroyAllWindows()
+    finally:
+        cv2.destroyAllWindows()
 
-    calib = FieldCalibration(np.array(clicks, np.float32), size=size, field_mm=field_mm,
-                             source_size=(img.shape[1], img.shape[0]))
-    calib.save(out_path)
-    print(f"已保存 {out_path}；四角残差 {calib.residuals():.2f} px（应接近 0）")
-    print(f"校正后 {size}x{size}，{calib.mm_per_px:.3f} mm/px；"
-          f"50 mm tag 约 {50 / calib.mm_per_px:.1f} px，20 mm 红块约 {20 / calib.mm_per_px:.1f} px")
+
+def save_preview(image: np.ndarray, calib: FieldCalibration, config_path: Path) -> np.ndarray:
+    view = draw_overlay(calib.warp(image), calib)
+    out = config_path.with_name(config_path.stem + "_preview.png")
+    if not cv2.imwrite(str(out), view):
+        print(menu_text(f"无法保存校正预览图：{out}", 31))
+    return view
 
 
 def preview(image_path: Path, config_path: Path) -> None:
@@ -157,13 +200,9 @@ def preview(image_path: Path, config_path: Path) -> None:
         raise SystemExit(f"读不到图片：{image_path}")
     if calib.source_size and (img.shape[1], img.shape[0]) != tuple(calib.source_size):
         print(f"警告：标定基于 {calib.source_size}，当前图 {img.shape[1]}x{img.shape[0]}，点位可能不匹配")
-    view = draw_overlay(calib.warp(img), calib)
-    out = config_path.with_name(config_path.stem + "_preview.png")
-    cv2.imwrite(str(out), view)
-    cv2.imshow("warped field", view)
+    cv2.imshow("warped field", save_preview(img, calib, config_path))
     cv2.waitKey(0)
     cv2.destroyAllWindows()
-    print(f"预览已保存 {out}")
 
 
 def main() -> None:

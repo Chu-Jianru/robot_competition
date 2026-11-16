@@ -1,7 +1,7 @@
 """高分辨率取图 + 实时识别（tag / 红块）。
 
 三种用法：
-1) 纯取图：只显示画面，S 存图。
+1) 取图：S 存图。传入 --calibrate-out 后，S 存图并在同一窗口点四角。
 2) 台架自检（--bench）：不需要场地，用 tag 自身 50 mm 反推 mm/px，
    实时统计红块数量与等效边长、到 tag 的距离。
 3) 场地模式（--config）：四角校正后测 tag 位姿，另开 "field view" 窗口。
@@ -12,7 +12,7 @@
     & 'E:\\scrcpy\\scrcpy-win64-v5.0.1\\.venv\\Scripts\\python.exe' windows\\capture_hi.py ^
         --scrcpy-dir 'E:\\scrcpy\\scrcpy-win64-v5.0.1' --rotate 90 --max-size 1280 --bench
 
-按键：S 存图（台架/场地模式同时存标注图），R 旋转，Q 退出。
+按键：S 存图，R 旋转，Q 退出。拍照标定模式下，Q 从照片返回直播，Esc 从直播退出。
 """
 
 from __future__ import annotations
@@ -28,7 +28,7 @@ import numpy as np
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from field_view import FieldCalibration, draw_overlay     # noqa: E402
+from field_view import FieldCalibration, calibrate_image, draw_overlay, save_preview  # noqa: E402
 from pose_tag import detect as detect_tag                 # noqa: E402
 from tag_detector import TAG_ID                           # noqa: E402
 from usb_camera import UsbCamera                          # noqa: E402
@@ -95,6 +95,21 @@ def draw_pose(view: np.ndarray, pose, mm_per_px: float) -> np.ndarray:
     return canvas
 
 
+def review_capture(image: np.ndarray, config_path: Path, window: str) -> None:
+    cv2.setWindowTitle(window, "Photo | Click 4 corners | Enter save | Q live")
+    calib = calibrate_image(image, config_path, window)
+    if calib is None:
+        return
+    view = save_preview(image, calib, config_path)
+    side = min(view.shape[0], 720)
+    cv2.resizeWindow(window, side, side)
+    cv2.setWindowTitle(window, "Calibrated field | Q live")
+    cv2.imshow(window, view)
+    while cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) >= 1:
+        if cv2.waitKey(20) & 0xFF in (ord("q"), ord("Q"), 27):
+            break
+
+
 def main() -> int:
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("--scrcpy-dir", type=Path, default=Path(__file__).resolve().parent)
@@ -106,6 +121,7 @@ def main() -> int:
     parser.add_argument("--no-fallback", action="store_true")
     parser.add_argument("--out", type=Path, default=Path(__file__).resolve().parent / "captures_hi")
     parser.add_argument("--config", type=Path, help="field_view 标定文件；给出时启用场地位姿")
+    parser.add_argument("--calibrate-out", type=Path, help="按 S 存图并标定，Enter 保存到该路径")
     parser.add_argument("--bench", action="store_true",
                         help="无场地台架自检：tag 边长自换算 mm/px，同时统计红块")
     parser.add_argument("--profile", type=Path,
@@ -115,7 +131,14 @@ def main() -> int:
     parser.add_argument("--min-mm", type=float, default=12.0, help="红块等效边长下限")
     parser.add_argument("--max-mm", type=float, default=32.0, help="红块等效边长上限")
     parser.add_argument("--detect-hz", type=float, default=12.0, help="识别频率，预览不降频")
+    parser.add_argument("--detector", choices=("auto", "hsv", "onnx"), default="auto",
+                        help="台架模式的红块来源，与 run_task 同一规则：auto=有模型就用 onnx")
+    parser.add_argument("--onnx-model", type=Path,
+                        default=Path(__file__).resolve().with_name("models") / "red_block.onnx")
+    parser.add_argument("--onnx-device", choices=("auto", "gpu", "cpu"), default="auto")
     args = parser.parse_args()
+    if args.calibrate_out and (args.bench or args.config):
+        parser.error("--calibrate-out 不能与 --bench 或 --config 同时使用")
 
     args.out.mkdir(parents=True, exist_ok=True)
     calib = FieldCalibration.load(args.config) if args.config else None
@@ -125,14 +148,22 @@ def main() -> int:
     find_tag = None
     annotate_bench = None
     red_config = None
-    detect_blocks = None
+    detect_hsv = None
+    bench_detector = None
     if args.bench:
         from bench_check import annotate as annotate_bench, find_tag
         from red_blocks import detect_red_blocks, filter_by_size_mm, load_red_config
-        detect_blocks = detect_red_blocks
+        # Same detector rule as the competition entry point (run_task): with a
+        # trained model present, --bench must show what the real run sees,
+        # not the bare HSV path.
+        from onnx_blocks import build_detector
+        bench_detector, bench_label = build_detector(
+            args.detector, args.onnx_model, args.onnx_device)
+        detect_hsv = detect_red_blocks
         size_filter = filter_by_size_mm
         red_config = load_red_config(args.profile) if args.profile.exists() else None
-        print(f"台架模式：红块配置 {args.profile} (exists={args.profile.exists()})；"
+        print(f"台架模式：红块检测 {bench_label}；"
+              f"配置 {args.profile} (exists={args.profile.exists()})；"
               f"用 tag {args.tag_mm:.0f} mm 边长自换算 mm/px；"
               f"毫米筛 {args.min_mm:.0f}–{args.max_mm:.0f} mm")
 
@@ -151,7 +182,9 @@ def main() -> int:
         return 2
 
     rotation = args.rotate
-    window = f"raw | S save | R rotate | Q quit | max_size={used_size}"
+    window = (f"Live | S photo | Esc menu | max_size={used_size}" if args.calibrate_out
+              else f"raw | S save | R rotate | Q quit | max_size={used_size}")
+    exit_keys = (27,) if args.calibrate_out else (27, ord("q"), ord("Q"))
     field_window = "field view | calibrated"
     saved = 0
     last_sequence = 0
@@ -164,6 +197,8 @@ def main() -> int:
     canvas_extra = None
 
     try:
+        if args.calibrate_out:
+            cv2.namedWindow(window, cv2.WINDOW_NORMAL)
         while True:
             frame, received_at, sequence = camera.latest.get()
             now = time.monotonic()
@@ -172,10 +207,11 @@ def main() -> int:
             if sequence == last_sequence:
                 if now - received_at > 3.0:
                     raise RuntimeError("画面停滞超过 3 s；重新运行并检查摄像头占用。")
-                if cv2.waitKey(1) & 0xFF in (27, ord("q"), ord("Q")):
+                if cv2.waitKey(1) & 0xFF in exit_keys:
                     break
                 time.sleep(0.01)
                 continue
+            first_frame = last_sequence == 0
             last_sequence = sequence
             frames_since_report += 1
 
@@ -188,7 +224,10 @@ def main() -> int:
                     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
                     tag_pts, tag_id, side_px = find_tag(gray, args.tag_id)
                     scale = args.tag_mm / side_px if tag_pts is not None else None
-                    candidates = detect_blocks(image, red_config)
+                    # HSV 的 detect_red_blocks 要 (image, config)，ONNX 的 detect
+                    # 只要 image；两种签名在这里分开调用。
+                    candidates = (bench_detector.detect(image) if bench_detector is not None
+                                  else detect_hsv(image, red_config))
                     if scale:
                         kept, rejected = size_filter(candidates, scale, args.min_mm, args.max_mm)
                     else:
@@ -221,13 +260,15 @@ def main() -> int:
             display = canvas_extra if canvas_extra is not None else image
             dheight, dwidth = display.shape[:2]
             scale_preview = min(1280 / dwidth, 720 / dheight, 1.0)
-            preview = display if scale_preview >= 1.0 else cv2.resize(
+            preview = display.copy() if scale_preview >= 1.0 else cv2.resize(
                 display, (int(dwidth * scale_preview), int(dheight * scale_preview)),
                 interpolation=cv2.INTER_AREA)
             age_ms = (now - received_at) * 1000
             fps_now = frames_since_report / max(1e-6, now - last_report)
             cv2.putText(preview, f"{width}x{height} | {fps_now:4.1f} fps | age={age_ms:.0f} ms | saved={saved}",
                         (8, 24), cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
+            if args.calibrate_out and first_frame:
+                cv2.resizeWindow(window, preview.shape[1], preview.shape[0])
             cv2.imshow(window, preview)
 
             if now - last_report >= 1.0:
@@ -255,9 +296,9 @@ def main() -> int:
                 frames_since_report = 0
 
             key = cv2.waitKey(1) & 0xFF
-            if key in (27, ord("q"), ord("Q")) or cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
+            if key in exit_keys or cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
                 break
-            if key in (ord("r"), ord("R")):
+            if not args.calibrate_out and key in (ord("r"), ord("R")):
                 rotation = (rotation + 90) % 360
             elif key in (ord("s"), ord("S")):
                 stamp = time.strftime("%H%M%S") + f"_{time.time_ns() % 1000:03d}"
@@ -275,6 +316,14 @@ def main() -> int:
                         buf.tofile(str(marked_path))
                         print(f"已保存 {marked_path}")
                 saved += 1
+                if args.calibrate_out:
+                    review_capture(image, args.calibrate_out, window)
+                    if cv2.getWindowProperty(window, cv2.WND_PROP_VISIBLE) < 1:
+                        break
+                    cv2.resizeWindow(window, preview.shape[1], preview.shape[0])
+                    cv2.setWindowTitle(window, window)
+                    last_report = time.monotonic()
+                    frames_since_report = 0
         return 0
     finally:
         camera.close()

@@ -84,12 +84,12 @@ class FrameWriter:
                 self.saved += 1
 
 
-def field_frame(image, calib, stamp):
+def field_frame(image, calib, stamp, detector=None):
     """Same call sequence as run_task.observe, keeping its counters."""
     from run_task import observe
     stats: dict = {}
     began = time.perf_counter()
-    scene, marked, label = observe(image, calib, stamp, stats)
+    scene, marked, label = observe(image, calib, stamp, stats, detector=detector)
     elapsed = (time.perf_counter() - began) * 1000
     blocks = [[round(float(b[0]), 4), round(float(b[1]), 4), round(float(b[2]), 4),
                round(float(b[3]), 4), bool(b[4])] for b in scene["blocks"]]
@@ -116,7 +116,7 @@ def field_frame(image, calib, stamp):
     }
 
 
-def bench_frame(image, red_config, tag_mm, tag_id, min_mm, max_mm):
+def bench_frame(image, red_config, tag_mm, tag_id, min_mm, max_mm, detector=None):
     """Same call sequence as capture_hi --bench, keeping its counters."""
     from bench_check import find_tag
     from red_blocks import detect_red_blocks, filter_by_size_mm
@@ -124,7 +124,9 @@ def bench_frame(image, red_config, tag_mm, tag_id, min_mm, max_mm):
     gray = cv2.cvtColor(image, cv2.COLOR_BGR2GRAY)
     tag_pts, found_id, side_px = find_tag(gray, tag_id)
     scale = tag_mm / side_px if tag_pts is not None and side_px else None
-    candidates = detect_red_blocks(image, red_config)
+    # Same detector choice as the competition run: ONNX when a model exists.
+    candidates = detector.detect(image) if detector is not None \
+        else detect_red_blocks(image, red_config)
     kept: list = []
     rejected: list = []
     if scale is not None:
@@ -305,6 +307,10 @@ def main() -> int:
     parser.add_argument("--track", action="store_true",
                         help="同时记录合并/确认/平滑后的块数，用于和逐帧原始值对比")
     parser.add_argument("--show", action="store_true", help="显示预览窗口（会计入耗时）")
+    parser.add_argument("--detector", choices=("auto", "hsv", "onnx"), default="auto",
+                        help="红块来源，与 run_task 同一规则：auto=有模型就用 onnx")
+    parser.add_argument("--onnx-model", type=Path, default=HERE / "models" / "red_block.onnx")
+    parser.add_argument("--onnx-device", choices=("auto", "gpu", "cpu"), default="auto")
     parser.add_argument("--out", type=Path, help="默认 windows/captures_hi/diag_<时间>")
     args = parser.parse_args()
 
@@ -339,6 +345,13 @@ def main() -> int:
     if args.track:
         from block_tracks import BlockStabilizer
         stabilizer = BlockStabilizer()
+    # Same detector rule as the competition entry point, so this diagnostic
+    # reports what the real run would actually see.
+    from onnx_blocks import build_detector
+    detector, detector_label = build_detector(
+        getattr(args, "detector", "auto"),
+        getattr(args, "onnx_model", None) or (HERE / "models" / "red_block.onnx"),
+        getattr(args, "onnx_device", "auto"))
     last_sequence = 0
     last_detect = 0.0
     started = time.monotonic()
@@ -359,10 +372,10 @@ def main() -> int:
             image = rotate(frame.to_ndarray(format="bgr24"), args.rotate)
             index = len(rows)
             if mode == "field":
-                result = field_frame(image, calib, received_at)
+                result = field_frame(image, calib, received_at, detector=detector)
             else:
                 result = bench_frame(image, red_config, args.tag_mm, args.tag_id,
-                                     args.min_mm, args.max_mm)
+                                     args.min_mm, args.max_mm, detector=detector)
             if stabilizer is not None:
                 # Same rule as run_task: an invalid frame does not advance the
                 # tracker, so a short vision gap cannot erase live blocks.

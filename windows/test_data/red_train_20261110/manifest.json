@@ -1,0 +1,1085 @@
+{
+  "created": "2026-11-11 17:02:02",
+  "source": "phone camera stream via scrcpy",
+  "mode": "manual",
+  "arguments": {
+    "scrcpy_dir": "E:\\scrcpy\\scrcpy-win64-v5.0.1",
+    "serial": null,
+    "rotate": 0,
+    "max_size": 1280,
+    "fps": 30,
+    "manual": true,
+    "interval": 0.7,
+    "seconds": 0.0,
+    "min_red_px": 0,
+    "no_dedup": false,
+    "show": true,
+    "no_prelabel": false,
+    "profile": "E:\\robot_competition\\windows\\red_block_profile.json",
+    "out": "windows\\test_data\\red_train_20261110"
+  },
+  "camera_size": 1280,
+  "rotate": 0,
+  "frames": [
+    {
+      "file": "frame_00033.jpg",
+      "wall": 1794387319.566,
+      "red_px": 3335,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00034.jpg",
+      "wall": 1794387319.649,
+      "red_px": 3340,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00035.jpg",
+      "wall": 1794387319.728,
+      "red_px": 3352,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00036.jpg",
+      "wall": 1794387319.808,
+      "red_px": 3366,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00037.jpg",
+      "wall": 1794387319.892,
+      "red_px": 3363,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00038.jpg",
+      "wall": 1794387321.788,
+      "red_px": 3355,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00039.jpg",
+      "wall": 1794387345.485,
+      "red_px": 3141,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00040.jpg",
+      "wall": 1794387345.582,
+      "red_px": 3085,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00041.jpg",
+      "wall": 1794387345.675,
+      "red_px": 3085,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00042.jpg",
+      "wall": 1794387346.056,
+      "red_px": 3144,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00043.jpg",
+      "wall": 1794387346.163,
+      "red_px": 3181,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00044.jpg",
+      "wall": 1794387346.256,
+      "red_px": 3184,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00045.jpg",
+      "wall": 1794387356.265,
+      "red_px": 3451,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00046.jpg",
+      "wall": 1794387356.374,
+      "red_px": 3484,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00047.jpg",
+      "wall": 1794387356.453,
+      "red_px": 3406,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00048.jpg",
+      "wall": 1794387365.334,
+      "red_px": 2310,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00049.jpg",
+      "wall": 1794387365.408,
+      "red_px": 2334,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00050.jpg",
+      "wall": 1794387365.509,
+      "red_px": 2411,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00051.jpg",
+      "wall": 1794387365.6,
+      "red_px": 2335,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00052.jpg",
+      "wall": 1794387398.869,
+      "red_px": 2907,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00053.jpg",
+      "wall": 1794387398.947,
+      "red_px": 2900,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00054.jpg",
+      "wall": 1794387399.021,
+      "red_px": 2941,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00055.jpg",
+      "wall": 1794387399.141,
+      "red_px": 2903,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00056.jpg",
+      "wall": 1794387399.245,
+      "red_px": 2917,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00057.jpg",
+      "wall": 1794387400.226,
+      "red_px": 2892,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00058.jpg",
+      "wall": 1794387401.236,
+      "red_px": 2802,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00059.jpg",
+      "wall": 1794387401.954,
+      "red_px": 2852,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00060.jpg",
+      "wall": 1794387402.094,
+      "red_px": 2810,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00061.jpg",
+      "wall": 1794387402.424,
+      "red_px": 2862,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00062.jpg",
+      "wall": 1794387402.531,
+      "red_px": 2848,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00063.jpg",
+      "wall": 1794387402.602,
+      "red_px": 2824,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00064.jpg",
+      "wall": 1794387423.812,
+      "red_px": 2754,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00065.jpg",
+      "wall": 1794387423.887,
+      "red_px": 2743,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00066.jpg",
+      "wall": 1794387423.996,
+      "red_px": 2806,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00067.jpg",
+      "wall": 1794387424.072,
+      "red_px": 2772,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00068.jpg",
+      "wall": 1794387424.181,
+      "red_px": 2756,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00069.jpg",
+      "wall": 1794387425.102,
+      "red_px": 2912,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00070.jpg",
+      "wall": 1794387425.209,
+      "red_px": 3005,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00071.jpg",
+      "wall": 1794387431.804,
+      "red_px": 3034,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00072.jpg",
+      "wall": 1794387431.992,
+      "red_px": 3025,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00073.jpg",
+      "wall": 1794387432.117,
+      "red_px": 3042,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00074.jpg",
+      "wall": 1794387432.227,
+      "red_px": 2853,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00075.jpg",
+      "wall": 1794387432.332,
+      "red_px": 2961,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00076.jpg",
+      "wall": 1794387434.006,
+      "red_px": 2952,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00077.jpg",
+      "wall": 1794387434.142,
+      "red_px": 2904,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00078.jpg",
+      "wall": 1794387434.223,
+      "red_px": 2966,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00079.jpg",
+      "wall": 1794387441.156,
+      "red_px": 3993,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00080.jpg",
+      "wall": 1794387441.232,
+      "red_px": 4130,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00081.jpg",
+      "wall": 1794387441.393,
+      "red_px": 4115,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00082.jpg",
+      "wall": 1794387441.49,
+      "red_px": 4206,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00083.jpg",
+      "wall": 1794387441.631,
+      "red_px": 4113,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00084.jpg",
+      "wall": 1794387441.703,
+      "red_px": 4057,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00085.jpg",
+      "wall": 1794387441.805,
+      "red_px": 4034,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00086.jpg",
+      "wall": 1794387441.903,
+      "red_px": 4056,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00087.jpg",
+      "wall": 1794387442.009,
+      "red_px": 4147,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00088.jpg",
+      "wall": 1794387442.13,
+      "red_px": 4220,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00089.jpg",
+      "wall": 1794387442.243,
+      "red_px": 4096,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00090.jpg",
+      "wall": 1794387442.332,
+      "red_px": 4146,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00091.jpg",
+      "wall": 1794387442.56,
+      "red_px": 4147,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00092.jpg",
+      "wall": 1794387442.825,
+      "red_px": 4163,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00093.jpg",
+      "wall": 1794387442.952,
+      "red_px": 4066,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00094.jpg",
+      "wall": 1794387449.209,
+      "red_px": 3446,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00095.jpg",
+      "wall": 1794387449.306,
+      "red_px": 3431,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00096.jpg",
+      "wall": 1794387449.404,
+      "red_px": 3346,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00097.jpg",
+      "wall": 1794387449.6,
+      "red_px": 3469,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00098.jpg",
+      "wall": 1794387449.705,
+      "red_px": 3472,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00099.jpg",
+      "wall": 1794387453.639,
+      "red_px": 3537,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00100.jpg",
+      "wall": 1794387489.643,
+      "red_px": 7020,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00101.jpg",
+      "wall": 1794387489.848,
+      "red_px": 7245,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00102.jpg",
+      "wall": 1794387490.374,
+      "red_px": 7138,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00103.jpg",
+      "wall": 1794387490.758,
+      "red_px": 7193,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00104.jpg",
+      "wall": 1794387490.946,
+      "red_px": 7146,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00105.jpg",
+      "wall": 1794387491.071,
+      "red_px": 7013,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00106.jpg",
+      "wall": 1794387497.813,
+      "red_px": 6359,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00107.jpg",
+      "wall": 1794387497.918,
+      "red_px": 6461,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00108.jpg",
+      "wall": 1794387497.999,
+      "red_px": 6432,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00109.jpg",
+      "wall": 1794387498.108,
+      "red_px": 6493,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00110.jpg",
+      "wall": 1794387498.187,
+      "red_px": 6284,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00111.jpg",
+      "wall": 1794387504.844,
+      "red_px": 5759,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00112.jpg",
+      "wall": 1794387505.02,
+      "red_px": 5932,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00113.jpg",
+      "wall": 1794387505.117,
+      "red_px": 5800,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00114.jpg",
+      "wall": 1794387505.202,
+      "red_px": 5880,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00115.jpg",
+      "wall": 1794387510.846,
+      "red_px": 5524,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00116.jpg",
+      "wall": 1794387510.958,
+      "red_px": 5643,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00117.jpg",
+      "wall": 1794387511.041,
+      "red_px": 5503,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00118.jpg",
+      "wall": 1794387511.145,
+      "red_px": 5603,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00119.jpg",
+      "wall": 1794387539.414,
+      "red_px": 2946,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00120.jpg",
+      "wall": 1794387539.552,
+      "red_px": 2912,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00121.jpg",
+      "wall": 1794387539.88,
+      "red_px": 2973,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00122.jpg",
+      "wall": 1794387540.279,
+      "red_px": 2931,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00123.jpg",
+      "wall": 1794387551.64,
+      "red_px": 3023,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00124.jpg",
+      "wall": 1794387551.726,
+      "red_px": 2999,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00125.jpg",
+      "wall": 1794387551.946,
+      "red_px": 2952,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00126.jpg",
+      "wall": 1794387563.617,
+      "red_px": 3035,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00127.jpg",
+      "wall": 1794387563.724,
+      "red_px": 2961,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00128.jpg",
+      "wall": 1794387563.897,
+      "red_px": 3013,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00129.jpg",
+      "wall": 1794387563.978,
+      "red_px": 2980,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00130.jpg",
+      "wall": 1794387564.086,
+      "red_px": 3062,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00131.jpg",
+      "wall": 1794387564.201,
+      "red_px": 3011,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00132.jpg",
+      "wall": 1794387574.163,
+      "red_px": 2941,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00133.jpg",
+      "wall": 1794387574.241,
+      "red_px": 2973,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00134.jpg",
+      "wall": 1794387574.364,
+      "red_px": 2899,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00135.jpg",
+      "wall": 1794387574.442,
+      "red_px": 2984,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00136.jpg",
+      "wall": 1794387574.536,
+      "red_px": 2939,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00137.jpg",
+      "wall": 1794387574.659,
+      "red_px": 2961,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00138.jpg",
+      "wall": 1794387574.749,
+      "red_px": 2939,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00139.jpg",
+      "wall": 1794387585.694,
+      "red_px": 2805,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00140.jpg",
+      "wall": 1794387585.856,
+      "red_px": 2825,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00141.jpg",
+      "wall": 1794387585.94,
+      "red_px": 2803,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00142.jpg",
+      "wall": 1794387586.085,
+      "red_px": 2799,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00143.jpg",
+      "wall": 1794387586.162,
+      "red_px": 2856,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00144.jpg",
+      "wall": 1794387586.243,
+      "red_px": 2879,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00145.jpg",
+      "wall": 1794387586.348,
+      "red_px": 3122,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00146.jpg",
+      "wall": 1794387610.754,
+      "red_px": 3372,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00147.jpg",
+      "wall": 1794387610.864,
+      "red_px": 3429,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00148.jpg",
+      "wall": 1794387610.987,
+      "red_px": 3437,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00149.jpg",
+      "wall": 1794387611.129,
+      "red_px": 3463,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00150.jpg",
+      "wall": 1794387611.27,
+      "red_px": 3434,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00151.jpg",
+      "wall": 1794387611.595,
+      "red_px": 3457,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00152.jpg",
+      "wall": 1794387618.893,
+      "red_px": 3535,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00153.jpg",
+      "wall": 1794387618.978,
+      "red_px": 3515,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00154.jpg",
+      "wall": 1794387619.159,
+      "red_px": 3510,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00155.jpg",
+      "wall": 1794387619.25,
+      "red_px": 3668,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00156.jpg",
+      "wall": 1794387619.333,
+      "red_px": 3604,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00157.jpg",
+      "wall": 1794387619.425,
+      "red_px": 3558,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00158.jpg",
+      "wall": 1794387625.7,
+      "red_px": 3739,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00159.jpg",
+      "wall": 1794387626.006,
+      "red_px": 3681,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00160.jpg",
+      "wall": 1794387632.534,
+      "red_px": 2764,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00161.jpg",
+      "wall": 1794387632.626,
+      "red_px": 2799,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00162.jpg",
+      "wall": 1794387632.707,
+      "red_px": 2731,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00163.jpg",
+      "wall": 1794387684.096,
+      "red_px": 2668,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00164.jpg",
+      "wall": 1794387684.187,
+      "red_px": 2691,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00165.jpg",
+      "wall": 1794387684.303,
+      "red_px": 2731,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00166.jpg",
+      "wall": 1794387684.391,
+      "red_px": 2706,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00167.jpg",
+      "wall": 1794387684.482,
+      "red_px": 2745,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00168.jpg",
+      "wall": 1794387684.569,
+      "red_px": 2725,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00169.jpg",
+      "wall": 1794387690.602,
+      "red_px": 3009,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00170.jpg",
+      "wall": 1794387690.69,
+      "red_px": 3046,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00171.jpg",
+      "wall": 1794387690.784,
+      "red_px": 3042,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00172.jpg",
+      "wall": 1794387690.869,
+      "red_px": 2945,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00173.jpg",
+      "wall": 1794387690.955,
+      "red_px": 3030,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00174.jpg",
+      "wall": 1794387698.441,
+      "red_px": 2780,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00175.jpg",
+      "wall": 1794387698.643,
+      "red_px": 2790,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00176.jpg",
+      "wall": 1794387698.753,
+      "red_px": 2833,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00177.jpg",
+      "wall": 1794387698.853,
+      "red_px": 2859,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00178.jpg",
+      "wall": 1794387698.945,
+      "red_px": 2750,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00179.jpg",
+      "wall": 1794387699.036,
+      "red_px": 2728,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00180.jpg",
+      "wall": 1794387705.676,
+      "red_px": 1931,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00181.jpg",
+      "wall": 1794387705.77,
+      "red_px": 1878,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00182.jpg",
+      "wall": 1794387705.86,
+      "red_px": 1953,
+      "width": 1280,
+      "height": 960
+    },
+    {
+      "file": "frame_00183.jpg",
+      "wall": 1794387705.944,
+      "red_px": 2045,
+      "width": 1280,
+      "height": 960
+    }
+  ],
+  "saved": 151,
+  "skipped_duplicate": 0,
+  "skipped_red": 0
+}

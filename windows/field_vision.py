@@ -23,6 +23,28 @@ HSV = {
 }
 
 
+def find_seam(blue, yellow):
+    """Require an observed, approximately horizontal blue/yellow transition."""
+    height, width = blue.shape
+    seams = []
+    for x in np.linspace(.08, .92, 9) * width:
+        half = width // 30
+        band = slice(int(x) - half, int(x) + half)
+        b = (blue[:, band] > 0).mean(axis=1)
+        y = (yellow[:, band] > 0).mean(axis=1)
+        if y[height//12:height//4].mean() < .6 or b[3*height//4:11*height//12].mean() < .6:
+            continue
+        lo, hi = height * 2 // 5, height * 3 // 5
+        south = np.flatnonzero(b[lo:hi] > .65)
+        north = np.flatnonzero(y[lo:hi] > .65)
+        if south.size and north.size and 0 < south[0] - north[-1] <= height * .03:
+            seams.append(lo + (south[0] + north[-1]) / 2)
+    if len(seams) < 6 or np.ptp(seams) > height * .025:
+        return None
+    seam = float(np.median(seams))
+    return seam if abs(seam - height / 2) <= height * .025 else None
+
+
 def _mask(hsv: np.ndarray, low: Sequence[int], high: Sequence[int]) -> np.ndarray:
     return cv2.inRange(hsv, np.array(low, np.uint8), np.array(high, np.uint8))
 
@@ -354,7 +376,107 @@ def detect_field(bgr: np.ndarray, lock: Optional[FieldLock] = None) -> Dict:
     }
 
 
-def _obstacles(hsv, homography, field_src, bias: float, robot_xy) -> Tuple[List[Point], List[Point]]:
+def _component_slice(bounds, padding, shape):
+    x, y, width, height = bounds[:4]
+    return (slice(max(0, y - padding), min(shape[0], y + height + padding)),
+            slice(max(0, x - padding), min(shape[1], x + width + padding)))
+
+
+def _remove_floor_glare(hsv, unknown, seam_px, kernel):
+    """Remove floor-coloured halos while retaining solid, neutral regions."""
+    highlight = (_mask(hsv, (0, 0, 245), (180, 30, 255)) != 0) & (unknown != 0)
+    if not highlight.any():
+        return unknown
+
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(unknown)
+    area = stats[:, cv2.CC_STAT_AREA]
+    highlight_pixels = np.bincount(labels[highlight], minlength=count)
+    radius_px = 10 * min(hsv.shape[:2]) / 1200
+    remaining = unknown
+    for label in np.flatnonzero((highlight_pixels >= .04 * area) & (highlight_pixels >= 15)):
+        roi = _component_slice(stats[label], kernel.shape[0] // 2, unknown.shape)
+        patch = hsv[roi]
+        region = labels[roi] == label
+        rows = np.arange(roi[0].start, roi[0].stop)[:, None]
+        blue = (_mask(patch, (95, 6, 150), (135, 79, 255)) != 0) & (rows >= seam_px - 5)
+        yellow = (_mask(patch, (10, 6, 185), (42, 79, 255)) != 0) & (rows <= seam_px + 5)
+        floor_tint = blue | yellow
+        if np.count_nonzero(floor_tint & region) < .55 * area[label]:
+            continue
+
+        # Even a bent light streak can have a large bounding box. Only discard
+        # very bright fragments with no interior 20 mm across. Solid objects stay.
+        remnants = cv2.morphologyEx(np.uint8(region & ~floor_tint), cv2.MORPH_OPEN, kernel)
+        size, fragments, fragment_stats, _ = cv2.connectedComponentsWithStats(remnants)
+        thick = cv2.distanceTransform(remnants, cv2.DIST_L2, 5) >= radius_px
+        bright = (_mask(patch, (0, 0, 200), (180, 40, 255)) != 0) & (remnants != 0)
+        solid = np.bincount(fragments[thick], minlength=size) != 0
+        bright_pixels = np.bincount(fragments[bright], minlength=size)
+        thin_highlight = ~solid & (bright_pixels >= .90 * fragment_stats[:, cv2.CC_STAT_AREA])
+        thin_highlight[0] = False
+        remnants[thin_highlight[fragments]] = 0
+        if remaining is unknown:
+            remaining = unknown.copy()
+        output_patch = remaining[roi]
+        output_patch[region] = remnants[region] * 255
+    return remaining
+
+
+def _remove_specular_glare(hsv, unknown):
+    """Suppress white highlights and washed-out patches of matching floor colour."""
+    bright = _mask(hsv, (0, 0, 190), (180, 80, 255))
+    bright_unknown = cv2.bitwise_and(bright, unknown)
+    unknown_pixels = unknown != 0
+    pale_blue = (_mask(hsv, (100, 12, 165), (130, 79, 255)) != 0) & unknown_pixels
+    pale_yellow = (_mask(hsv, (15, 12, 185), (40, 79, 255)) != 0) & unknown_pixels
+    if not (bright_unknown.any() or pale_blue.any() or pale_yellow.any()):
+        return unknown
+    blue_floor = _mask(hsv, (95, 40, 15), (135, 255, 255))
+    yellow_floor = _mask(hsv, (10, 40, 15), (45, 255, 255))
+    floor = cv2.bitwise_or(blue_floor, yellow_floor)
+    ring_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (21, 21))
+    count, labels, stats, _ = cv2.connectedComponentsWithStats(unknown)
+    max_area = .0014 * unknown.shape[0] * unknown.shape[1]
+    area = stats[:, cv2.CC_STAT_AREA]
+    bright_pixels = np.bincount(labels[bright_unknown != 0], minlength=count)
+    small_glare = (area <= max_area) & (bright_pixels >= .8 * area)
+    saturation, value = hsv[:, :, 1], hsv[:, :, 2]
+    clipped = (bright_unknown != 0) & (saturation <= 30) & (value >= 245)
+    dark = unknown_pixels & (value < 145)
+    clipped_pixels = np.bincount(labels[clipped], minlength=count)
+    dark_pixels = np.bincount(labels[dark], minlength=count)
+    no_dark_structure = dark_pixels <= .03 * area
+    white_glare = (clipped_pixels >= .90 * area) & no_dark_structure
+    # A reflected lamp may look pale blue or yellow without clipping to white.
+    # Require a washed-out patch surrounded by the same floor hue.
+    blue_glare = (np.bincount(labels[pale_blue], minlength=count) >= .90 * area) & no_dark_structure
+    yellow_glare = (np.bincount(labels[pale_yellow], minlength=count) >= .90 * area) & no_dark_structure
+    candidates = small_glare | white_glare | blue_glare | yellow_glare
+    candidates[0] = False
+    for label in np.flatnonzero(candidates):
+        roi = _component_slice(stats[label], ring_kernel.shape[0] // 2, unknown.shape)
+        component = labels[roi] == label
+        # Look a little beyond the highlight: a lamp image sits inside a
+        # larger bright streak, so the immediate border is not all floor.
+        ring = cv2.dilate(component.astype(np.uint8), ring_kernel) > 0
+        ring[component] = False
+        ring_area = np.count_nonzero(ring)
+        if small_glare[label] or white_glare[label]:
+            surrounding_floor = floor
+            floor_fraction = .45 if small_glare[label] else .70
+        else:
+            surrounding_floor = blue_floor if blue_glare[label] else yellow_floor
+            floor_fraction = .85
+        if ring_area == 0 or np.count_nonzero(surrounding_floor[roi] & ring) < floor_fraction * ring_area:
+            continue
+        output_patch = unknown[roi]
+        output_patch[component] = 0
+    return unknown
+
+
+def _obstacles(hsv, homography, field_src, bias: float, robot_xy, *,
+               robot_outline_px=None, robot_outline_pad_px=0,
+               floor_seam_px=None) -> Tuple[List[Point], List[Point]]:
     """场地里比物块大、又不是红块和己方色标的物体。车自己身上的绿色和灰铲不算。"""
     height, width = hsv.shape[:2]
     inside = np.zeros((height, width), np.uint8)
@@ -363,7 +485,12 @@ def _obstacles(hsv, homography, field_src, bias: float, robot_xy) -> Tuple[List[
     for name in ("yellow", "red_lo", "red_hi", "magenta", "cyan"):
         known = cv2.bitwise_or(known, _mask(hsv, *HSV[name]))
     other = cv2.bitwise_and(inside, cv2.bitwise_not(known))
-    if robot_xy is not None:
+    if robot_outline_px is not None:
+        outline = np.rint(robot_outline_px).astype(np.int32)
+        cv2.fillPoly(other, [outline], 0)
+        if robot_outline_pad_px:
+            cv2.polylines(other, [outline], True, 0, 2 * robot_outline_pad_px)
+    elif robot_xy is not None:
         # 仅擦掉自身投影，而不是把距车心16cm内的整个对手轮廓丢弃。
         rx, ry, yaw = robot_xy
         c, s = np.cos(yaw), np.sin(yaw)
@@ -373,6 +500,9 @@ def _obstacles(hsv, homography, field_src, bias: float, robot_xy) -> Tuple[List[
         cv2.fillConvexPoly(other, polygon, 0)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     other = cv2.morphologyEx(other, cv2.MORPH_OPEN, kernel)
+    if floor_seam_px is not None:
+        other = _remove_floor_glare(hsv, other, floor_seam_px, kernel)
+    other = _remove_specular_glare(hsv, other)
     points = []
     extents = []
     for blob in _blobs(other, homography, 0.035, 0.40, min_area_px=45.0):

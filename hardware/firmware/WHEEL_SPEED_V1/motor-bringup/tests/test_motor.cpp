@@ -16,7 +16,8 @@ void stopped() {
 int main() {
   setup();
   stopped();
-  const int expected[4][4] = {{21,19,22,23}, {16,4,17,18}, {27,14,26,25}, {32,33,35,34}};
+  const int expected[4][4] = {{22,23,21,19}, {17,18,16,4}, {26,25,27,14}, {32,33,35,34}};
+  assert(kStandby == 13);
   bool seen[40] = {};
   seen[kStandby] = true;
   for (int i = 0; i < 4; ++i) {
@@ -62,7 +63,7 @@ int main() {
   stopped();
   command("JOG 15 300", 10);
   assert(running && levels[kStandby] == HIGH);
-  assert(pwmValues[kMotors[0].pwm1] == 0 && pwmValues[kMotors[0].pwm2] == 38);
+  assert(pwmValues[kMotors[0].pwm1] == 38 && pwmValues[kMotors[0].pwm2] == 0);
   encoders[0].count = 7;
   command("ENCZERO", 20);
   assert(encoders[0].count == 7);  // resetting is rejected during a pulse
@@ -75,7 +76,7 @@ int main() {
   command("JOG 20 300", 1309);
   stopped();
   command("JOG -20 300", 1310);
-  assert(running && pwmValues[kMotors[0].pwm1] == 51 && pwmValues[kMotors[0].pwm2] == 0);
+  assert(running && pwmValues[kMotors[0].pwm1] == 0 && pwmValues[kMotors[0].pwm2] == 51);
   command("STOP", 1350);
   stopped();
   for (const char* invalid : {"JOG 101 300", "JOG -101 300", "JOG 20 0",
@@ -111,13 +112,13 @@ int main() {
   stopped();
   hasStopped = false;
   command("JOG 100 200", 6000);
-  assert(running && pwmValues[kMotors[0].pwm1] == 0 && pwmValues[kMotors[0].pwm2] == 255);
+  assert(running && pwmValues[kMotors[0].pwm1] == 255 && pwmValues[kMotors[0].pwm2] == 0);
   serviceDeadline(6199);
   assert(running);
   serviceDeadline(6200);
   stopped();
   command("JOG -100 500", 7200);
-  assert(running && pwmValues[kMotors[0].pwm1] == 255 && pwmValues[kMotors[0].pwm2] == 0);
+  assert(running && pwmValues[kMotors[0].pwm1] == 0 && pwmValues[kMotors[0].pwm2] == 255);
   command("STOP", 7201);
   stopped();
   // Extended duration runs to its deadline while the panel sends STATUS.
@@ -187,8 +188,8 @@ int main() {
     snprintf(text, sizeof(text), "JOG %c -100 100", 'A' + channel);
     command(text, 8000 + channel*2000);
     assert(running && activeChannel == channel && levels[kStandby] == HIGH);
-    // 2026-10-27 实测修正后，四路负电气方向统一为前进，正电气方向为后退。
-    const int backwardPwm = kMotors[channel].pwm1;
+    const bool forwardPinIsFirst = motorprofile::kForwardPolarity[channel] > 0;
+    const int backwardPwm = forwardPinIsFirst ? kMotors[channel].pwm2 : kMotors[channel].pwm1;
     for (int pwm = 0; pwm < 8; ++pwm)
       assert(pwmValues[pwm] == (pwm == backwardPwm ? 255 : 0));
     command("JOG A 50 1000", 8010 + channel*2000);
@@ -198,7 +199,7 @@ int main() {
     hasStopped=false;
     snprintf(text, sizeof(text), "JOG %c 100 100", 'A'+channel);
     command(text,8200+channel*2000);
-    const int forwardPwm = kMotors[channel].pwm2;
+    const int forwardPwm = forwardPinIsFirst ? kMotors[channel].pwm1 : kMotors[channel].pwm2;
     for(int pwm=0;pwm<8;++pwm) assert(pwmValues[pwm] == (pwm==forwardPwm ? 255:0));
     serviceDeadline(8300+channel*2000);
     stopped();
@@ -223,7 +224,7 @@ int main() {
     stopped();
   }
   command("CAPS", 18001);
-  assert(Serial.output.find("CAPS MOTORS=ABCD PINS=FOUR_V1") != std::string::npos);
+  assert(Serial.output.find("CAPS MOTORS=ABCD PINS=FOUR_V2") != std::string::npos);
   hasStopped = false;
   command("JOG D 50 5000", 19000);
   assert(running);

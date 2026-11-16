@@ -24,7 +24,7 @@ class MotorLink:
             raise ValueError("不支持的真实控制模式")
         self.mode = mode
         self.factory = serial_factory
-        self.require_profile = require_profile
+        self.require_profile = (require_profile,) if isinstance(require_profile, str) else tuple(require_profile or ())
         self.supported_channels = ("A",)
         self.profile = None
         self.events = queue.Queue()
@@ -136,15 +136,19 @@ class MotorLink:
         """子类可解析附加状态；调用位置仍在串口线程，不能直接更新 Tk 控件。"""
         pass
 
+    def heartbeat_command(self):
+        return "STATUS"
+
     def _run(self, port):
-        # WHO/MODE/PONG 只确认协议；CAPS 的 FOUR_V1 才确认真实 GPIO 接线版本。
-        # 排查“连上但未就绪”：依次看 WHO -> MODE_OK -> PONG -> CAPS -> STOPPED。
+        # WHO/MODE/PONG 只确认协议；CAPS 才确认真实 GPIO 接线版本。
+        # 握手依次确认 MODE、STOP、CAPS 与 STATUS，避免蓝牙回包堆满。
         # 自动 STATUS 同时保活固件；TLM 只提供观测，不能代替控制端心跳。
         device = None
         identified = False
         selecting_mode = False
         unified = False
         selected_mode = False
+        handshake = None
         profile_confirmed = not self.require_profile
         feature_confirmed = self.mode != "CHASSIS"
         try:
@@ -152,6 +156,7 @@ class MotorLink:
             opened = time.monotonic()
             last_probe = last_query = 0.0
             last_reply = opened
+            last_calibration_line = ""
             pending = bytearray()
 
             def write(command, automatic=False):
@@ -163,16 +168,19 @@ class MotorLink:
                 if not identified:
                     if now - opened > 6:
                         raise RuntimeError("未确认当前接线对应的四路固件，请烧录 motor-bringup 最新版。")
-                    if now - last_probe >= 0.4:
+                    if not selecting_mode and now - last_probe >= 0.4:
                         write("WHO", automatic=True)
                         write("PING", automatic=True)
                         last_probe = now
                 elif now - last_reply > 2.5:
-                    raise RuntimeError("设备应答超时，已撤销窗口控制；请检查连接后重连。")
+                    detail = f"，最后标定回包为 {last_calibration_line}" if last_calibration_line else ""
+                    raise RuntimeError(f"设备应答超时{detail}，已撤销窗口控制；请检查连接后重连。")
                 if identified and not self.ready and now - opened > 6:
                     if self.mode == "CHASSIS" and not feature_confirmed:
                         raise RuntimeError("底盘固件需更新为 MECANUM_V2（驱动统一前进方向），请更新面板并重新烧录。")
-                    raise RuntimeError("固件引脚版本不匹配，需烧录 FOUR_V1 四路固件后再测试。")
+                    expected = " 或 ".join(self.require_profile) or "可识别的四路固件"
+                    actual = self.profile or "未收到引脚版本"
+                    raise RuntimeError(f"固件引脚版本不匹配（设备 {actual}，需要 {expected}）")
 
                 with self._lock:
                     command = self._commands.popleft() if self._commands and self._ready else None
@@ -180,8 +188,8 @@ class MotorLink:
                     # pulse cannot slip out after the queue has been cleared.
                     if command and not self._exit.is_set():
                         write(command)
-                if identified and now - last_query > 0.7:
-                    write("STATUS", automatic=True)
+                if self.ready and now - last_query > 0.7:
+                    write(self.heartbeat_command(), automatic=True)
                     last_query = now
 
                 incoming = device.read(min(device.in_waiting or 1, 2048))
@@ -204,6 +212,7 @@ class MotorLink:
                         raise RuntimeError("机器人正在由另一个 USB/蓝牙连接控制，请先断开另一面板，再重新连接。")
                     if line.startswith("UNIFIED_BOOT "):
                         identified = selecting_mode = selected_mode = False
+                        handshake = None
                         profile_confirmed = not self.require_profile
                         feature_confirmed = self.mode != "CHASSIS"
                         self.supported_channels, self.profile = ("A",), None
@@ -212,9 +221,9 @@ class MotorLink:
                             self._ready = False
                             self._commands.clear()
                         self.events.put(("reset", "统一固件已启动；默认模拟模式，正在重新确认台架模式"))
-                    elif line == "CAPS MOTORS=ABCD PINS=FOUR_V1":
-                        self.supported_channels, self.profile = tuple("ABCD"), "FOUR_V1"
-                        profile_confirmed = self.require_profile in (None, "FOUR_V1")
+                    elif line in ("CAPS MOTORS=ABCD PINS=FOUR_V1", "CAPS MOTORS=ABCD PINS=FOUR_V2"):
+                        self.supported_channels, self.profile = tuple("ABCD"), line.rsplit("=", 1)[1]
+                        profile_confirmed = not self.require_profile or self.profile in self.require_profile
                         self.events.put(("capabilities", tuple("ABCD")))
                     elif line == CHASSIS_CAPABILITY:
                         feature_confirmed = True
@@ -232,12 +241,18 @@ class MotorLink:
                         if not identified:
                             identified = True
                             last_reply = now
+                            handshake = "stop"
                             write("STOP")
-                            write("CAPS", automatic=True)
+                        elif handshake == "caps":
+                            # This PONG follows CAPS on the same serial channel,
+                            # so all capability replies have drained before STATUS.
+                            handshake = "status"
+                            last_query = time.monotonic()
                             write("STATUS")
                     elif identified and line.startswith(self.mode + ":"):
                         # An online reset cancels all pending motion; re-identify.
                         identified = False
+                        handshake = None
                         profile_confirmed = not self.require_profile
                         feature_confirmed = self.mode != "CHASSIS"
                         self.supported_channels, self.profile = ("A",), None
@@ -246,8 +261,14 @@ class MotorLink:
                             self._commands.clear()
                             self._ready = False
                         self.events.put(("reset", "开发板已重启，正在重新确认停止状态"))
-                    elif identified and line in ("STOPPED A", "STOPPED ALL") and not selecting_mode and profile_confirmed and feature_confirmed:
+                    elif handshake == "stop" and line in ("STOPPED command", "STOPPED A", "STOPPED ALL"):
+                        handshake = "caps"
+                        write("CAPS", automatic=True)
+                        write("PING", automatic=True)
+                    elif (handshake == "status" and line in ("STOPPED A", "STOPPED ALL")
+                          and profile_confirmed and feature_confirmed):
                         # 仅在固件身份、模式、引脚版本、停止状态全部确认后开放操作。
+                        handshake = "ready"
                         with self._lock:
                             first_ready = not self._ready
                             self._ready = True
@@ -257,7 +278,12 @@ class MotorLink:
                         with self._lock:
                             if self._ready:
                                 self._next_jog = time.monotonic() + 1.1
-                    if identified and line.startswith((f"PONG {self.mode}", "STOPPED", "RUNNING", "ENC ", "JOG A ", "CHASSIS_RUN ", "LAYOUT ", "ERROR ")):
+                    if line.startswith(("CAL START", "CAL PROGRESS ")):
+                        last_calibration_line = line
+                    elif line.startswith(("CAL DONE ", "CAL FAIL ", "UNIFIED_BOOT ")):
+                        last_calibration_line = ""
+                    if identified and line.startswith((f"PONG {self.mode}", "STOPPED", "RUNNING", "ENC ",
+                                                       "JOG A ", "CHASSIS_RUN ", "LAYOUT ", "ERROR ", "CAL ")):
                         last_reply = time.monotonic()
         except Exception as exc:
             self.events.put(("error", str(exc)))

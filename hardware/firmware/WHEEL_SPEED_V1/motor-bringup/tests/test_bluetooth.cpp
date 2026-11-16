@@ -31,7 +31,8 @@ int main() {
   Serial.output.clear(); SerialBT.output.clear();
   bt("WHO\nCAPS\n", 1);
   assert(SerialBT.output.find("UNIFIED_ROBOT 1 mode=DRY_RUN") != std::string::npos);
-  assert(SerialBT.output.find("CAPS MOTORS=ABCD PINS=FOUR_V1") != std::string::npos);
+  assert(SerialBT.output.find("CAPS MOTORS=ABCD PINS=FOUR_V2") != std::string::npos);
+  assert(SerialBT.output.find("FIRMWARE VERSION=V3") != std::string::npos);
   assert(Serial.output.empty());
   bt("MECANUM 50 0 0 100\n", 2); stopped();
   bt("MODE CHASSIS\n", 3); stopped();
@@ -116,6 +117,32 @@ int main() {
   fakeNow = 1449; loop(); assert(running);
   fakeNow = 1450; loop(); stopped();
   assert(controlOwner == ControlPort::None && !layoutConfigured);
+  bt("MODE CHASSIS\nLAYOUT CBAD 1 1 1 1\n", 2500);
+  for (uint32_t now = 2501; now <= 4301; now += 200) {
+    bt("MECANUM_HOLD 50 0 0\n", now);
+    assert(running && holdMotion && controlOwner == ControlPort::Bluetooth);
+  }
+  usb("MECANUM_HOLD -50 0 0\n", 4302);
+  assert(startedAt == 4301);
+  usb("STOP HOLD\n", 4302);
+  assert(running && holdMotion);  // 正常松键仅由控制端发送；普通 STOP 仍可跨端口。
+  bt("STOP\nMECANUM_MANUAL 50 0 0\n", 4302);
+  assert(running && manualMotion && controlOwner == ControlPort::Bluetooth);
+  usb("MECANUM_MANUAL -50 0 0\n", 4302);
+  assert(holdAxes[0] == 50);
+  SerialBT.connection(false);
+  fakeNow = 4303; loop(); stopped();
+  assert(!holdMotion && !manualMotion && controlOwner == ControlPort::None);
+  connectBt(5000);
+  bt("MODE CHASSIS\nLAYOUT CBAD 1 1 1 1\nMECANUM_STREAM 20 5 3 150\n", 5001);
+  assert(running && streamMotion && controlOwner == ControlPort::Bluetooth);
+  usb("STOP\n", 5002); stopped();
+  bt("MECANUM_STREAM 20 5 3 150\n", 5003); stopped();
+  bt("MODE CHASSIS\nLAYOUT CBAD 1 1 1 1\nMECANUM_STREAM 20 5 3 150\n", 5004);
+  assert(running && streamMotion);
+  SerialBT.connection(false);
+  fakeNow = 5005; loop(); stopped();
+  assert(!streamMotion && controlOwner == ControlPort::None);
   std::cout << "PASS: Bluetooth/USB protocol routing, independent parsers, control ownership, "
                "other-port STOP, heartbeat isolation, timeout/wrap, stale RX disposal, "
                "rapid reconnect, fresh layout gate, TX failure and USB unaffected by BT disconnect\n";

@@ -68,10 +68,42 @@ def boxes_to_detections(boxes, scores, picked, width: int, height: int):
             continue
         centre = ((x1 + x2) / 2.0, (y1 + y2) / 2.0)
         contour = np.float32([[[x1, y1]], [[x2, y1]], [[x2, y2]], [[x1, y2]]])
+        width_px, height_px = x2 - x1, y2 - y1
         results.append({
             "center_px": centre,
             "contour_px": contour,
-            "bbox_px": (int(x1), int(y1), int(x2 - x1), int(y2 - y1)),
+            "bbox_px": (int(x1), int(y1), int(width_px), int(height_px)),
+            # 与 HSV 检测器保持同一字段集：`filter_by_size_mm` 的等效边长按面积折算，
+            # 缺 area_px 会在台架模式直接 KeyError。
+            "area_px": float(width_px * height_px),
             "score": float(scores[index]),
         })
     return results
+
+
+DEFAULT_MODEL = Path(__file__).resolve().parent / "models" / "red_block.onnx"
+
+
+def build_detector(kind: str = "auto", model=DEFAULT_MODEL, device: str = "auto",
+                   quiet: bool = False):
+    """Build the block detector using the same rule everywhere.
+
+    `auto` means "use the trained model when it exists", which is what the
+    competition entry point does. Diagnostic tools must call this too, otherwise
+    they show HSV results while the real run uses ONNX.
+
+    Returns (detector, label). `detector` is None when HSV is selected, which is
+    the signal callers use to fall back to `detect_calibrated_blocks`.
+    """
+    model = Path(model)
+    use_onnx = kind == "onnx" or (kind == "auto" and model.exists())
+    if not use_onnx:
+        if kind == "onnx":
+            raise RuntimeError(f"找不到模型 {model}；先把 best.onnx 放到 windows/models/")
+        if not quiet:
+            print("红块检测：HSV（未找到模型或指定了 hsv）", flush=True)
+        return None, "HSV"
+    detector = OnnxBlockDetector(model, imgsz=(1280, 960), device=device)
+    if not quiet:
+        print(f"红块检测：ONNX {model}（后端 {detector.provider}）", flush=True)
+    return detector, f"ONNX/{detector.provider}"

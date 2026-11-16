@@ -1,6 +1,6 @@
 # 比赛清扫机器人
 
-场地 1.2 m × 1.2 m，蓝黄各半，围栏高 10 cm；己方为蓝区（y<0），90 秒内将己方红块推至对面，己方剩余红块少者胜。当前实机链路为手机俯视取图 → USB/scrcpy → Windows OpenCV/ONNX → 蓝牙 SPP → ESP32 麦轮底盘。比赛期间不运行 ROS 和 Gazebo。
+场地 1.2 m × 1.2 m，蓝黄各半，围栏高 10 cm。起跑侧为己方，90 秒内将己方红块推至对面，己方剩余红块少者胜。当前实机链路为手机俯视取图 → USB/scrcpy → Windows OpenCV/ONNX → 蓝牙 SPP → ESP32 麦轮底盘。比赛期间不运行 ROS 和 Gazebo。
 
 ![实车](docs/media/实车图.jpg)
 

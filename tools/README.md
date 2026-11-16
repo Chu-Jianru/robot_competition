@@ -2,7 +2,7 @@
 
 这里是**不进入交付包、也不属于 vendor** 的本地工具目录：解释器、编译产物、启动入口、排查记录。全部可删可重建。
 
-日常操作可双击 [日常工具.cmd](日常工具.cmd) 打开中文数字菜单，菜单逻辑在 `windows/daily_tools.py`。该 CMD 使用 ASCII 与 CRLF，不需要在 PowerShell 中设置变量；具体按键见 [常用命令](../docs/常用命令.md)。菜单本身不自动连接设备，选择对应操作后才启动工具。
+双击 [日常工具.cmd](日常工具.cmd) 打开中文数字菜单。选 **8** 检查手机 USB，取图和任务也会检查 USB 授权与 scrcpy 通道占用。打开菜单本身不连接设备。菜单逻辑位于 `windows/daily_tools.py`，编号和命令见 [常用命令](../docs/常用命令.md)。
 
 ## 目录
 
@@ -29,7 +29,7 @@
 tools\启动新面板.cmd
 ```
 
-脚本自己会：检查依赖 → 设置 `PYTHONPATH`（`debug-workbench`、`esp32-pc-link/pc`、`motor-bringup` 三处）→ 把数据目录重定向到 `tools\panel-data` → 关掉字节码写入，避免污染 `vendor/`。
+日常菜单 **9** 打开简版轮速标定窗口。完整工作台仍由本脚本打开，界面沿用队友包，串口适配优先加载本仓库支持 `FOUR_V2` 的版本。数据写到 `tools\panel-data`，启动时关闭字节码写入以保护 `vendor/`。
 
 缺依赖时的重装命令：
 

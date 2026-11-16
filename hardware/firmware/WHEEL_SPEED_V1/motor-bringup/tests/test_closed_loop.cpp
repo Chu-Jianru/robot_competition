@@ -162,9 +162,11 @@ int main() {
   for (int i=0;i<4;++i) {
     assert(std::fabs(measuredSpeed[i] - 4000.0f) < 1.0f);
     assert(appliedDuty[i] > 78.0f && appliedDuty[i] < 86.0f);
-    // Logical +80% maps through the -1 electrical polarity onto the second PWM pin.
-    assert(pwmValues[kMotors[i].pwm1] == 0);
-    assert(std::abs(pwmValues[kMotors[i].pwm2] - 204) <= 12);
+    const bool forwardPinIsFirst = motorprofile::kForwardPolarity[i] > 0;
+    const int drivePin = forwardPinIsFirst ? kMotors[i].pwm1 : kMotors[i].pwm2;
+    const int otherPin = forwardPinIsFirst ? kMotors[i].pwm2 : kMotors[i].pwm1;
+    assert(pwmValues[otherPin] == 0);
+    assert(std::abs(pwmValues[drivePin] - 204) <= 12);
   }
 
   // 5. Timer deadline stops and clears the whole closed-loop state.
@@ -304,8 +306,8 @@ int main() {
   assert(encoders[0].count < rawBefore);
   assert(std::fabs(measuredSpeed[0] - 4000.0f) < 1.0f);
   assert(appliedDuty[0] > 0.0f);
-  assert(pwmValues[kMotors[0].pwm1] == 0);
-  assert(pwmValues[kMotors[0].pwm2] > 0);
+  assert(pwmValues[kMotors[0].pwm1] > 0);
+  assert(pwmValues[kMotors[0].pwm2] == 0);
   command("STOP", 15001);
   stoppedAndClear();
   installCalibration();  // restore sign=+1 for the remaining cases

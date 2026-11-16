@@ -13,7 +13,8 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
-from chassis_link import CHASSIS_CAPS, ChassisError, ChassisLink  # noqa: E402
+from chassis_link import (CHASSIS_CAPS, HOLD_CAPS, HOLD_RELEASE_CAPS, MANUAL_CAPS,
+                          SPEED_STREAM_CAPS, STREAM_CAPS, ChassisError, ChassisLink)  # noqa: E402
 
 
 class FakeFirmware:
@@ -72,10 +73,11 @@ class FakeFirmware:
                 self._emit("ERROR stop before changing layout")
                 return
             self.layout = line.split()[1]
-            self._emit("LAYOUT CONFIGURED=1 ORDER=ADBC SIGNS=1,1,1,1 TYPE=X")
+            self._emit(f"LAYOUT CONFIGURED=1 ORDER={self.layout} SIGNS=1,1,1,1 TYPE=X")
         elif line == "STATUS":
             self._emit("RUNNING CHASSIS" if self.running else "STOPPED ALL")
             self._emit("ENC A ticks=0 invalid=0 A=0 B=0")
+            self._emit("FAULT none")
         elif line == "PING":
             self._emit("PONG CHASSIS")
         elif line.startswith("MECANUM "):
@@ -98,6 +100,136 @@ class FakeFirmware:
             self._emit("ENC A ticks=0 invalid=0 A=0 B=0")
         elif line.startswith("ENC"):
             self._emit("ENC A ticks=0 invalid=0 A=0 B=0")
+
+
+class StreamTest(unittest.TestCase):
+    def setUp(self):
+        self.now = 1.
+        self.link = ChassisLink("FAKE", clock=lambda: self.now, strict=True, require_stream=True)
+        self.peer = FakeFirmware()
+        self.link._device = self.peer
+        self.link._phase = "CAPS"
+        self.link._handle_line(STREAM_CAPS, self.now)
+        self.link._handle_line(CHASSIS_CAPS, self.now)
+        self.link._handle_line("LAYOUT CONFIGURED=1 ORDER=ADBC SIGNS=1,1,1,1 TYPE=X", self.now)
+        self.link._handle_line("STOPPED ALL", self.now)
+
+    def test_older_firmware_cannot_arm_autonomous_output(self):
+        old = ChassisLink("FAKE", strict=True, require_stream=True)
+        old._phase = "CAPS"
+        with self.assertRaisesRegex(ChassisError, "CHASSIS_STREAM"):
+            old._handle_line(CHASSIS_CAPS, self.now)
+        self.assertFalse(old.ready)
+
+    def test_updates_replace_unsent_target_and_renew_without_a_stop(self):
+        self.assertTrue(self.link.stream(20, 2, -4, valid_until=1.35))
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "MECANUM_STREAM 20 2 -4 150")
+        self.now = 1.04
+        self.assertTrue(self.link.stream(18, 3, 2, valid_until=1.35))
+        self.assertTrue(self.link.stream(16, 4, 2, valid_until=1.35))
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "MECANUM_STREAM 20 2 -4 150")
+        self.link._handle_line("STREAM_OK", self.now)
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "MECANUM_STREAM 16 4 2 150")
+        self.assertEqual(self.link.stream_outputs, ((20, 2, -4), (16, 4, 2)))
+        self.link._handle_line("STREAM_OK", self.now)
+        self.assertEqual(self.link.stream_outputs, ((16, 4, 2),))
+
+    def test_pipelined_renewal_does_not_wait_for_stream_ok(self):
+        link = ChassisLink("FAKE", clock=lambda: self.now, strict=True,
+                           require_stream=True, stream_pipeline=True)
+        link._device = self.peer
+        link._phase = "CAPS"
+        link._handle_line(STREAM_CAPS, self.now)
+        link._handle_line(CHASSIS_CAPS, self.now)
+        link._handle_line("LAYOUT CONFIGURED=1 ORDER=ADBC SIGNS=1,1,1,1 TYPE=X", self.now)
+        link._handle_line("STOPPED ALL", self.now)
+        self.assertTrue(link.stream(20, 0, 0, valid_until=1.35))
+        link._service(self.now)
+        self.assertTrue(self.peer.sent[-1].startswith("MECANUM_STREAM "))
+        self.now = 1.05
+        self.assertTrue(link.stream(20, 0, 0, valid_until=1.40))
+        link._service(self.now)  # No STREAM_OK for the first target yet.
+        self.assertTrue(self.peer.sent[-1].startswith("MECANUM_STREAM "))
+        self.now = 1.30
+        link._handle_line("STREAM_OK", self.now)  # A late ack must not abort.
+
+    def test_lease_shortens_and_stop_cancels_a_queued_renewal(self):
+        self.assertTrue(self.link.stream(20, 0, 0, valid_until=1.20))
+        self.now = 1.05
+        self.link._service(self.now)
+        self.assertIn(int(self.peer.sent[-1].split()[-1]), (109, 110))
+        self.assertTrue(self.link.stream(21, 0, 0, valid_until=1.30))
+        self.link.stop()
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "STOP")
+        self.assertFalse(self.link.stream(20, 0, 0, valid_until=1.30))
+        self.link._handle_line("STOPPED command", self.now)
+        self.assertEqual(self.link.stream_outputs, ())
+        self.assertTrue(self.link.stream(20, 0, 0, valid_until=1.30))
+
+    def test_stale_queued_target_is_discarded_and_missing_ack_aborts(self):
+        self.assertTrue(self.link.stream(20, 0, 0, valid_until=1.25))
+        self.now = 1.22
+        self.link._service(self.now)
+        self.assertFalse(any(line.startswith("MECANUM_STREAM ") for line in self.peer.sent))
+        self.assertTrue(self.link.stream(20, 0, 0, valid_until=1.60))
+        self.link._service(self.now)
+        self.now = 1.38
+        with self.assertRaisesRegex(ChassisError, "租期内"):
+            self.link._service(self.now)
+
+    def test_wheel_speed_stream_checks_board_calibration_and_sends_counts(self):
+        link = ChassisLink("FAKE", clock=lambda: self.now, strict=True, require_speed_stream=True)
+        link._device = self.peer
+        link._phase = "CAPS"
+        link._handle_line(SPEED_STREAM_CAPS, self.now)
+        link._handle_line(CHASSIS_CAPS, self.now)
+        link._handle_line("LAYOUT CONFIGURED=1 ORDER=ADBC SIGNS=1,1,1,1 TYPE=X", self.now)
+        self.assertEqual(self.peer.sent[-1], "SPEED_INFO")
+        with self.assertRaisesRegex(ChassisError, "轮速标定"):
+            link._handle_line("SPEED_INFO 0 0 0 0 0", self.now)
+        link._handle_line("SPEED_INFO 2800 1 -1 1 -1", self.now)
+        link._handle_line("STOPPED ALL", self.now)
+        self.assertEqual(link.speed_info, (2800, (1, -1, 1, -1)))
+        self.assertTrue(link.stream(1000, 300, -150, valid_until=1.35))
+        link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "SPEED_STREAM 1000 300 -150 150")
+
+    def test_wheel_speed_heartbeat_is_not_deferred_by_stop_or_encoder_reads(self):
+        link = ChassisLink("FAKE", clock=lambda: self.now, strict=True, require_speed_stream=True)
+        link._device = self.peer
+        link._phase = "CAPS"
+        link._handle_line(SPEED_STREAM_CAPS, self.now)
+        link._handle_line(CHASSIS_CAPS, self.now)
+        link._handle_line("LAYOUT CONFIGURED=1 ORDER=ADBC SIGNS=1,1,1,1 TYPE=X", self.now)
+        link._handle_line("SPEED_INFO 5963 -1 -1 1 1", self.now)
+        link._handle_line("STOPPED ALL", self.now)
+        self.assertTrue(link.stream(-1987, 0, 0, valid_until=1.35))
+        link._service(self.now)
+        link._handle_line("STREAM_OK", self.now)
+
+        self.now = 1.06
+        link.stop()
+        link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "STOP")
+        link._handle_line("STOPPED command", self.now)
+        self.now = 1.60
+        link._pending, link._send_by = "ENC_SNAPSHOT", None
+        link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "ENC_SNAPSHOT")
+
+        self.now = 1.71
+        link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "PING")
+        self.now = 2.42
+        link._pending, link._send_by = "ENC_SNAPSHOT", None
+        link._service(self.now)
+        self.assertEqual(self.peer.sent[-2:], ["ENC_SNAPSHOT", "PING"])
+        self.assertEqual([line for line in self.peer.sent if line.startswith("SPEED_STREAM ")],
+                         ["SPEED_STREAM -1987 0 0 150"])
 
 
 def wait_until(predicate, timeout=3.0, interval=0.01):
@@ -133,6 +265,214 @@ class ChassisLinkTest(unittest.TestCase):
     def test_pulse_before_ready_is_refused(self):
         link, _ = self.make_link()
         self.assertFalse(link.pulse(20, 0, 0, 100))
+
+    def test_hold_renews_and_cannot_restart_without_cooldown(self):
+        class HoldFirmware(FakeFirmware):
+            def _handle(self, line):
+                if line == "CAPS":
+                    self._emit(HOLD_CAPS)
+                if line.startswith("MECANUM_HOLD "):
+                    self._emit("HOLD_OK" if self.running else "CHASSIS_RUN duration=250")
+                    self.running = True
+                    self.running_until = time.monotonic() + .25
+                    return
+                super()._handle(line)
+
+        fake = HoldFirmware()
+        link = ChassisLink("FAKE", strict=True, serial_factory=lambda **_: fake, cooldown_s=.05)
+        link.start()
+        try:
+            link.wait_ready(2)
+            self.assertTrue(link.supports_hold)
+            self.assertTrue(wait_until(lambda: not link.busy))
+            self.assertTrue(link.hold(40, 0, 0))
+            self.assertTrue(wait_until(lambda: "CHASSIS_RUN duration=250" in link.events))
+            self.assertTrue(wait_until(lambda: link.hold(45, 0, 0), timeout=.15))
+            self.assertTrue(wait_until(lambda: "HOLD_OK" in link.events))
+            self.assertIn("MECANUM_HOLD 45 0 0", fake.sent)
+            link.stop()
+            self.assertTrue(wait_until(lambda: "STOP" in fake.sent))
+            self.assertFalse(link.hold(45, 0, 0))
+            self.assertTrue(wait_until(lambda: not link.busy))
+            self.assertTrue(link.hold(40, 0, 0))
+            self.assertTrue(wait_until(lambda: "STOPPED timer" in link.events))
+            self.assertTrue(wait_until(lambda: not link.busy))
+            self.assertFalse(link.hold(40, 0, 0, renew=True))
+            self.assertTrue(link.ready)
+            self.assertIsNone(link.error)
+        finally:
+            link.close()
+
+    def make_manual_link(self):
+        now = [1.0]
+        link, fake = self.make_link(strict=True, recover_cooldown=True, cooldown_s=1.05,
+                                    clock=lambda: now[0], heartbeat_s=10.0)
+        link._device, link._phase = fake, "READY"
+        link._ready = link._supports_hold = True
+        link._last_reply = now[0]
+        return link, fake, now
+
+    def test_delayed_stop_ack_blocks_restart_and_late_start_ack_is_harmless(self):
+        link, fake, now = self.make_manual_link()
+        self.assertTrue(link.hold(20, 0, 0))
+        link._service(now[0])
+        link.stop()
+        link._service(now[0])
+        now[0] = 2.1
+        link._handle_line("CHASSIS_RUN duration=250", now[0])
+        self.assertTrue(link.busy)
+        self.assertFalse(link.hold(20, 0, 0))
+        link.stop()
+        link._service(now[0])
+        self.assertEqual(fake.sent.count("STOP"), 1)
+        link._handle_line("STOPPED command", now[0])
+        now[0] = 3.14
+        self.assertFalse(link.hold(20, 0, 0))
+        now[0] = 3.16
+        self.assertTrue(link.hold(20, 0, 0))
+
+    def test_split_stop_reply_is_parsed_only_after_newline(self):
+        class SplitReplyFirmware(FakeFirmware):
+            def readline(self):
+                if self._rx.startswith(b"STOPPED command"):
+                    first = bytes(self._rx[:11])
+                    del self._rx[:11]
+                    return first
+                return super().readline()
+
+        fake = SplitReplyFirmware()
+        link = ChassisLink("FAKE", strict=True, serial_factory=lambda **_: fake, cooldown_s=.05)
+        link.start()
+        try:
+            link.wait_ready(2)
+            link.stop()
+            self.assertTrue(wait_until(lambda: "STOPPED command" in link.events))
+            self.assertTrue(wait_until(lambda: not link.busy))
+            self.assertTrue(link.ready)
+            self.assertIsNone(link.error)
+        finally:
+            link.close()
+
+    def test_fast_release_shortens_only_the_hold_gate(self):
+        link, fake, now = self.make_manual_link()
+        link._phase = "CAPS"
+        link._handle_line(HOLD_RELEASE_CAPS, now[0])
+        link._phase = "READY"
+        self.assertTrue(link.supports_hold_release)
+        self.assertTrue(link.hold(20, 0, 0))
+        link._service(now[0])
+        link.stop(release=True)
+        link._service(now[0])
+        self.assertEqual(fake.sent[-1], "STOP HOLD")
+        self.assertTrue(link.hold_restarting)
+        now[0] = 1.01
+        link._handle_line("STOPPED hold_release", now[0])
+        now[0] = 1.069
+        self.assertFalse(link.hold(-20, 0, 0))
+        self.assertTrue(link.hold_busy)
+        now[0] = 1.071
+        self.assertFalse(link.hold_busy)
+        self.assertFalse(link.pulse(20, 0, 0, 100))
+        self.assertTrue(link.hold(-20, 0, 0))
+
+    def test_manual_target_changes_bypass_cooldown_and_replace_pending_commands(self):
+        link, fake, now = self.make_manual_link()
+        link._phase = "CAPS"
+        link._handle_line(MANUAL_CAPS, now[0])
+        link._phase = "READY"
+        link._next_ok = 10.0
+        self.assertTrue(link.supports_manual)
+        self.assertTrue(link.manual(20, 0, 0))
+        link._service(now[0])
+        link.renew_manual()
+        self.assertTrue(link.manual(-20, 0, 0))
+        link._service(now[0])
+        self.assertTrue(link.manual(0, 0, 0))
+        link._service(now[0])
+        link.renew_manual()
+        self.assertTrue(link.manual(0, 20, 0))
+        link._service(now[0])
+        link.renew_manual()
+        link._service(now[0])
+        self.assertEqual(fake.sent, ["MECANUM_MANUAL 20 0 0", "MECANUM_MANUAL -20 0 0",
+                                     "MECANUM_MANUAL 0 0 0", "MECANUM_MANUAL 0 20 0", "MECANUM_KEEP"])
+
+    def test_expired_manual_command_sends_neutral_instead_of_motion(self):
+        link, fake, now = self.make_manual_link()
+        link._supports_manual = True
+        self.assertTrue(link.manual(20, 0, 0))
+        now[0] += .16
+        link._service(now[0])
+        link._service(now[0])
+        self.assertEqual(fake.sent, ["MECANUM_MANUAL 0 0 0"])
+        self.assertFalse(link.manual_active)
+
+    def test_emergency_stop_overrides_outstanding_release(self):
+        link, fake, now = self.make_manual_link()
+        link._supports_hold_release = True
+        self.assertTrue(link.hold(20, 0, 0))
+        link._service(now[0])
+        link.stop(release=True)
+        link._service(now[0])
+        link.stop()
+        link._service(now[0])
+        self.assertEqual(fake.sent[-2:], ["STOP HOLD", "STOP"])
+        link._handle_line("STOPPED hold_release", now[0])
+        now[0] = 2.1
+        self.assertFalse(link.hold_restarting)
+        self.assertFalse(link.hold(20, 0, 0))
+        link._handle_line("STOPPED command", now[0])
+        self.assertFalse(link.hold(20, 0, 0))
+
+    def test_old_firmware_receives_plain_stop_on_release(self):
+        link, fake, now = self.make_manual_link()
+        self.assertTrue(link.hold(20, 0, 0))
+        link._service(now[0])
+        link.stop(release=True)
+        link._service(now[0])
+        self.assertEqual(fake.sent[-1], "STOP")
+
+    def test_manual_cooldown_rejection_does_not_retry_stale_input(self):
+        link, fake, now = self.make_manual_link()
+        self.assertTrue(link.hold(20, 0, 0))
+        link._service(now[0])
+        link._handle_line("ERROR wait 1 second after stop", now[0])
+        self.assertFalse(link.holding)
+        self.assertTrue(link.busy)
+        now[0] = 2.1
+        self.assertFalse(link.hold(20, 0, 0, renew=True))
+        link._service(now[0])
+        self.assertEqual(fake.sent, ["MECANUM_HOLD 20 0 0"])
+        self.assertTrue(link.hold(0, 20, 0))
+        with self.assertRaisesRegex(ChassisError, "FAULT last=stall"):
+            link._handle_line("FAULT last=stall", now[0])
+
+    def test_expired_hold_command_is_replaced_with_stop(self):
+        link, fake, now = self.make_manual_link()
+        self.assertTrue(link.hold(20, 0, 0))
+        now[0] = 1.2
+        link._service(now[0])
+        self.assertFalse(link.holding)
+        link._service(now[0])
+        self.assertEqual(fake.sent, ["STOP"])
+
+    def test_strict_link_distinguishes_health_report_from_a_fault(self):
+        link, fake = self.make_link(strict=True, layout="CBDA 1 1 1 1")
+        link.start()
+        try:
+            self.assertTrue(link.wait_ready(3.0))
+            self.assertTrue(wait_until(lambda: "FAULT none" in link.events))
+            self.assertTrue(wait_until(lambda: not link.busy))
+            self.assertIsNone(link.error)
+            self.assertTrue(link.pulse(20, 0, 0, 100))
+            self.assertTrue(wait_until(lambda: "MECANUM 20 0 0 100" in fake.sent))
+            fake._emit("FAULT last=stall")
+            self.assertTrue(wait_until(lambda: fake.closed))
+            self.assertEqual(link.error, "FAULT last=stall")
+            self.assertFalse(link.ready)
+            self.assertIn("STOP", fake.sent)
+        finally:
+            link.close()
 
     def test_pulse_sends_mecanum_and_blocks_second(self):
         link, fake = self.make_link()

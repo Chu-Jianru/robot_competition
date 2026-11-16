@@ -79,10 +79,10 @@ class WheelPid {
   }
 
   // target/measured: counts/s；vmax: counts/s；dt: 秒。
-  // 返回逻辑占空比百分比，已限幅到 ±100。
+  // 返回逻辑占空比百分比。连续驱动可限制输出并在低速平滑引入前馈。
   inline float step(float target, float measured, float vmax,
                     const calibration::Wheel& wheel, const Gains& gains,
-                    float dt) {
+                    float dt, float outputLimit = 100.0f, float feedforwardRamp = 0.0f) {
     // 目标为零：清零积分并直接输出 0（STOP 语义，不走 PI）。
     if (target == 0.0f) {
       integral_ = 0.0f;
@@ -100,6 +100,7 @@ class WheelPid {
     float ff = wheel.a + wheel.b * absTarget;
     if (ff < 0.0f) ff = 0.0f;
     if (ff > 100.0f) ff = 100.0f;
+    if (absTarget < feedforwardRamp) ff *= absTarget / feedforwardRamp;
     const float uff = (targetSign < 0) ? -ff : ff;
 
     // 2. 归一化误差（满量程百分比）。vmax<=0 时视为无误差，避免除零。
@@ -118,8 +119,8 @@ class WheelPid {
     float raw = uff + gains.kp * en + integralTerm;
 
     // 5. 抗积分饱和：输出已饱和且误差还在往饱和方向推时，回退本次积分增量。
-    if ((raw > kOutputLimit && en > 0.0f) ||
-        (raw < -kOutputLimit && en < 0.0f)) {
+    if ((raw > outputLimit && en > 0.0f) ||
+        (raw < -outputLimit && en < 0.0f)) {
       integral_ -= increment;
       clampIntegralState(integral_, gains.ki);
       integralTerm = clampIntegralTerm(gains.ki * integral_);
@@ -127,8 +128,8 @@ class WheelPid {
     }
 
     // 输出限幅。
-    if (raw > kOutputLimit) raw = kOutputLimit;
-    if (raw < -kOutputLimit) raw = -kOutputLimit;
+    if (raw > outputLimit) raw = outputLimit;
+    if (raw < -outputLimit) raw = -outputLimit;
     return raw;
   }
 
@@ -136,7 +137,6 @@ class WheelPid {
   inline float integral() const { return integral_; }
 
  private:
-  static constexpr float kOutputLimit = 100.0f;
   static constexpr float kIntegralTermLimit = 30.0f;
 
   static inline float clampIntegralTerm(float term) {
