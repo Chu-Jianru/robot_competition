@@ -168,11 +168,12 @@ class ChassisLink(MotorLink):
             reason = line[len("FAULT "):].strip()
             if reason.startswith("last="):
                 reason = reason[len("last="):]
-            if reason == "none":
+            code = reason.partition(" ")[0]
+            if code == "none":
                 self._last_fault = None
-            elif reason and reason != self._last_fault:
+            elif code and code != self._last_fault:
                 # STATUS repeats "FAULT last=" every 0.7 s; only surface a new fault.
-                self._last_fault = reason
+                self._last_fault = code
                 self.events.put(("fault", reason))
 
     def motion(self, values, milliseconds, *, mixed=True):

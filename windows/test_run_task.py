@@ -15,9 +15,9 @@ from calibrate_drive import (ObstacleGate, Pose, fit_gains, measure_drive, motio
                              save_obstacle_images, stable_pose, trial_gain)
 from field_view import FieldCalibration
 from pose_tag import detect
-from run_task import (DriveConfig, HybridCompetitionPolicy, MAX_AGE, VisionWorker,
-                      can_start, fresh, latest_scene, observe)
-from tag_detector import TAG_ID
+from run_task import (DriveConfig, MAX_AGE, SweepPolicy, VisionWorker,
+                      build_parser, can_start, fresh, latest_scene, observe, overlapping_boxes)
+from tag_detector import TAG_ID, TAG_OVERLAY_COLOR
 from test_chassis_link import FakeFirmware
 
 
@@ -103,14 +103,14 @@ class TaskSceneTest(unittest.TestCase):
         marker = cv2.aruco.generateImageMarker(dictionary, TAG_ID, 40)
         self.image[750:790, 470:510] = marker[:, :, None]
 
-    def test_rectified_scene_feeds_hybrid_policy(self):
+    def test_rectified_scene_feeds_sweep_policy(self):
         scene, _, reason = observe(self.image, self.calib, 4.)
         self.assertTrue(scene["valid"], reason)
         self.assertTrue(can_start(scene))
         self.assertAlmostEqual(scene["robot"][2], math.pi / 2, delta=.04)
         self.assertAlmostEqual(scene["seam_bias"], -.015, delta=.002)
         self.assertEqual(sorted(block[4] for block in scene["blocks"]), [False, True])
-        policy = HybridCompetitionPolicy()
+        policy = SweepPolicy()
         policy.update(scene)
         self.assertTrue(policy.valid)
         self.assertEqual(len(policy.pending()), 1)
@@ -122,6 +122,57 @@ class TaskSceneTest(unittest.TestCase):
         scene, _, _ = observe(self.image, self.calib, 4.)
         self.assertFalse(scene["valid"])
 
+    def test_tag_outline_and_arrow_follow_the_decoded_tag_for_either_home_side(self):
+        for sign, side in ((-1, "blue"), (1, "yellow")):
+            with self.subTest(side=side):
+                image = self.image.copy()
+                if sign > 0:
+                    image[750:790, 470:510] = np.rot90(self.image[750:790, 470:510], 2)
+                pose, reason = detect(self.calib.warp(image), self.calib)
+                self.assertIsNotNone(pose, reason)
+                cx, cy = map(round, pose.center_px)
+                corner_x, corner_y = map(round, pose.corners_px[0])
+                scene, marked, reason = observe(image, self.calib, 4., home_side=side,
+                                                detect_obstacles=False)
+                self.assertTrue(scene["valid"], reason)
+                self.assertEqual(tuple(marked[corner_y, corner_x]), TAG_OVERLAY_COLOR)
+                self.assertEqual(tuple(marked[cy + sign * 45, cx]), TAG_OVERLAY_COLOR)
+                self.assertNotEqual(tuple(marked[cy - sign * 45, cx]), TAG_OVERLAY_COLOR)
+
+    def test_tag_overlay_is_still_visible_when_seam_is_missing(self):
+        self.image[512:740, 20:980] = (10, 230, 240)
+        self.image[800:980, 20:980] = (10, 230, 240)
+        stats = {}
+        scene, marked, label = observe(self.image, self.calib, 4., stats)
+        self.assertIn("seam missing", label)
+        self.assertFalse(scene["valid"])
+        self.assertTrue(stats["tag_ok"])
+        self.assertTrue(np.any(np.all(marked == TAG_OVERLAY_COLOR, axis=2)))
+
+    def test_overlap_of_exactly_seventy_percent_keeps_both_boxes(self):
+        a = (0, 0, 20, 20)
+        self.assertFalse(overlapping_boxes(a, (6, 0, 26, 20)))
+        self.assertTrue(overlapping_boxes(a, (5, 0, 25, 20)))
+        self.assertTrue(overlapping_boxes(a, (2, 2, 12, 12)))
+
+    def test_four_detections_near_two_blocks_draw_and_report_only_the_best_two(self):
+        detections = []
+        for y, x, score in ((620, 493, .35), (620, 490, .90),
+                            (641, 493, .40), (639, 490, .85)):
+            contour = np.float32([[x, y], [x + 20, y], [x + 20, y + 20], [x, y + 20]])
+            detections.append(dict(contour_px=contour, center_px=contour.mean(axis=0), score=score))
+        stats = {}
+        detector = SimpleNamespace(detect=lambda _: detections)
+        scene, marked, reason = observe(self.image, self.calib, 4., stats, detector,
+                                        detect_obstacles=False)
+        self.assertTrue(scene["valid"], reason)
+        self.assertEqual(stats["overlap_dropped"], 2)
+        self.assertEqual(len(scene["blocks"]), 2)
+        self.assertTrue(all(abs(block[0]) < .001 for block in scene["blocks"]))
+        for y in (610, 630):
+            self.assertEqual(tuple(marked[y, 490]), (0, 235, 0))
+            self.assertNotEqual(tuple(marked[y, 493]), (0, 235, 0))
+
     def test_empty_field_mode_skips_obstacle_vision_but_keeps_pose_and_blocks(self):
         with patch("run_task._obstacles") as obstacle_detector:
             scene, _, reason = observe(self.image, self.calib, 4., detect_obstacles=False)
@@ -129,6 +180,45 @@ class TaskSceneTest(unittest.TestCase):
         self.assertTrue(scene["valid"], reason)
         self.assertIsNotNone(scene["robot"])
         self.assertEqual(len(scene["blocks"]), 2)
+        self.assertEqual(scene["obstacles"], [])
+
+    def test_wall_outside_visible_field_cannot_merge_with_wall_side_blocks(self):
+        # The rectified square includes a tinted strip outside the inner wall.
+        # Its lower section is dark and touches several red blocks.
+        for y in range(20, 980):
+            left = round(66 - .018 * (y - 20))
+            self.image[y, 20:left] = (175, 75, 60) if y >= 512 else (35, 85, 112)
+            if 550 <= y < 760:
+                self.image[y, 20:left] = (75, 62, 58)
+        # Keep an obstacle that extends into the playable floor at the wall.
+        self.image[280:357, 35:123] = (32, 35, 40)
+        detections = []
+        for x, y in ((35, 580), (59, 612), (60, 646), (59, 715)):
+            self.image[y-8:y+8, x-8:x+8] = (0, 0, 190)
+            contour = np.float32([[x-8, y-8], [x+8, y-8], [x+8, y+8], [x-8, y+8]])
+            detections.append(dict(center_px=(x, y), contour_px=contour))
+        detector = SimpleNamespace(detect=lambda _: detections)
+        square = np.float32([[0, 0], [959, 0], [959, 959], [0, 959]])
+        with patch("run_task.rectified_floor_border", return_value=square):
+            unrestricted, _, label = observe(self.image, self.calib, 4., detector=detector)
+        self.assertTrue(unrestricted["valid"], label)
+        self.assertEqual(len(unrestricted["blocks"]), 4)
+        self.assertEqual(len(unrestricted["obstacles"]), 2)
+
+        scene, _, label = observe(self.image, self.calib, 4., detector=detector)
+        self.assertTrue(scene["valid"], label)
+        self.assertEqual(len(scene["blocks"]), 3)
+        (_, y, _, _), = scene["obstacles"]
+        self.assertGreater(y, 0.)
+
+    def test_recognized_red_block_contour_breaks_up_a_dark_obstacle_candidate(self):
+        self.image[590:671, 610:648] = (40, 42, 45)
+        contour = np.float32([[610, 618], [648, 618], [648, 642], [610, 642]])
+        block = dict(center_px=contour.mean(axis=0), contour_px=contour)
+        detector = SimpleNamespace(detect=lambda _: [block])
+        scene, _, label = observe(self.image, self.calib, 4., detector=detector)
+        self.assertTrue(scene["valid"], label)
+        self.assertEqual(len(scene["blocks"]), 1)
         self.assertEqual(scene["obstacles"], [])
 
     def test_excludes_the_wheel_contour_and_keeps_the_adjacent_block(self):
@@ -158,13 +248,12 @@ class TaskSceneTest(unittest.TestCase):
         self.assertTrue(scene["valid"], reason)
         self.assertEqual(scene["obstacles"], [])
 
-        for value in (28, 215):
-            with self.subTest(value=value):
-                image = self.image.copy()
-                cv2.rectangle(image, (342, 582), (395, 634), (value,) * 3, -1)
-                scene, _, reason = observe(image, self.calib, 1.)
-                self.assertTrue(scene["valid"], reason)
-                self.assertEqual(len(obstacles_near_car(scene)), 1)
+        # A bright roof with a solid dark chassis is still detected.
+        cv2.rectangle(self.image, (342, 582), (395, 634), (215, 215, 215), -1)
+        cv2.rectangle(self.image, (351, 594), (381, 625), (28, 28, 28), -1)
+        scene, _, reason = observe(self.image, self.calib, 1.)
+        self.assertTrue(scene["valid"], reason)
+        self.assertEqual(len(obstacles_near_car(scene)), 1)
 
     def test_small_specular_dot_on_floor_is_ignored(self):
         cv2.rectangle(self.image, (600, 240), (627, 267), (255, 255, 255), -1)
@@ -191,20 +280,28 @@ class TaskSceneTest(unittest.TestCase):
         self.assertLess(x, scene["robot"][0])
         self.assertGreater(min(hx, hy), .065)
 
-    def test_filters_pale_blue_reflection_only_on_matching_floor(self):
-        # The recorded lamp reflection is tinted blue and too dim to clip white.
+    def test_filters_pale_blue_reflection_on_both_halves(self):
         pale_blue = cv2.cvtColor(np.uint8([[[114, 51, 202]]]), cv2.COLOR_HSV2BGR)[0, 0]
         self.image[570:645, 315:375] = pale_blue
         self.image[390:465, 315:375] = pale_blue
         scene, _, reason = observe(self.image, self.calib, 4.)
         self.assertTrue(scene["valid"], reason)
-        (_, y, _, _), = scene["obstacles"]
-        self.assertGreater(y, 0.)
+        self.assertEqual(scene["obstacles"], [])
+
+    def test_filters_unclipped_glare_across_seam_with_red_block_and_shadow(self):
+        # An unclipped lamp spans the seam and catches the edge of a red block.
+        cv2.ellipse(self.image, (650, 510), (45, 48), 0, 0, 360, (220, 225, 228), -1)
+        self.image[529:547, 649:661] = (45, 58, 60)
+        self.image[535:550, 658:673] = (0, 0, 205)
+        scene, _, reason = observe(self.image, self.calib, 4.)
+        self.assertTrue(scene["valid"], reason)
+        self.assertEqual(scene["obstacles"], [])
 
     def test_masks_own_chassis_edge_without_dropping_an_adjacent_robot(self):
         # A projected wheel/bottom edge protrudes beyond the roof-tag outline.
         self.image[792:865, 551:585] = (40, 45, 50)
-        with patch("run_task.OBSTACLE_OUTLINE_PAD_MM", 0):
+        with (patch("run_task.OBSTACLE_OUTLINE_PAD_MM", 0),
+              patch("run_task.OBSTACLE_OWN_RADIUS_MM", 0)):
             scene, _, reason = observe(self.image, self.calib, 4.)
         self.assertTrue(scene["valid"], reason)
         self.assertEqual(len(scene["obstacles"]), 1)
@@ -221,6 +318,18 @@ class TaskSceneTest(unittest.TestCase):
         self.assertGreater(x, scene["robot"][0])
         self.assertGreater(hx, .045)
 
+    def test_ignores_own_dark_edge_joined_to_glare_beyond_oriented_mask(self):
+        cv2.rectangle(self.image, (595, 748), (631, 799), (40, 45, 50), -1)
+        cv2.rectangle(self.image, (629, 745), (697, 795), (225, 225, 225), -1)
+        with patch("run_task.OBSTACLE_OWN_RADIUS_MM", 0):
+            scene, _, reason = observe(self.image, self.calib, 4.)
+            self.assertTrue(scene["valid"], reason)
+            self.assertEqual(len(scene["obstacles"]), 1)
+
+        scene, _, reason = observe(self.image, self.calib, 4.)
+        self.assertTrue(scene["valid"], reason)
+        self.assertEqual(scene["obstacles"], [])
+
     def test_yellow_start_maps_to_the_same_planner_orientation(self):
         blue_start, _, _ = observe(self.image, self.calib, 4., home_side=None)
         self.assertEqual(blue_start["home_side"], "blue")
@@ -235,7 +344,7 @@ class TaskSceneTest(unittest.TestCase):
         self.assertTrue(can_start(yellow_start))
         np.testing.assert_allclose(yellow_start["robot"], blue_start["robot"], atol=.003)
         self.assertAlmostEqual(yellow_start["seam_bias"], blue_start["seam_bias"], delta=.003)
-        policy = HybridCompetitionPolicy()
+        policy = SweepPolicy()
         policy.update(yellow_start)
         self.assertTrue(policy.valid)
         self.assertEqual(len(policy.pending()), 1)
@@ -527,6 +636,14 @@ class DriveWizardTest(unittest.TestCase):
         # Only the first case exercises an obstacle pause and a frozen-frame pause.
         self.assertEqual(len(stops), 20 if check_obstacles else 18)
         link.close.assert_called_once()
+
+
+class ObstacleSwitchTest(unittest.TestCase):
+    def test_obstacle_flags_leave_the_switch_as_default(self):
+        parser = build_parser()
+        self.assertIsNone(parser.parse_args([]).obstacles)
+        self.assertTrue(parser.parse_args(["--obstacles"]).obstacles)
+        self.assertFalse(parser.parse_args(["--no-obstacles"]).obstacles)
 
 
 if __name__ == "__main__":

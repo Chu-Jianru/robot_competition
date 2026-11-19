@@ -35,6 +35,7 @@ SPEED_STREAM_PREFIX = "SPEED_STREAM "
 STREAM_MAX_MS = 150
 STREAM_MIN_MS = 60
 STREAM_SEND_MARGIN_S = .04
+STREAM_RENEW_INTERVAL_S = .05
 MAX_PULSE_MS = 60_000
 
 
@@ -49,7 +50,7 @@ class ChassisLink:
                  serial_factory=None, heartbeat_s=0.7, cooldown_s=1.05,
                  connect_timeout_s=8.0, reply_timeout_s=2.5, clock=time.monotonic,
                  strict=False, recover_cooldown=False, require_stream=False,
-                 require_speed_stream=False, stream_pipeline=False):
+                 require_speed_stream=False, stream_pipeline=False, renew_stream=False):
         self.port = port
         self.layout = layout
         self.baudrate = baudrate
@@ -63,6 +64,7 @@ class ChassisLink:
         self._require_stream = require_stream or require_speed_stream
         self._require_speed_stream = require_speed_stream
         self._stream_pipeline = stream_pipeline
+        self._renew_stream = renew_stream
         self._stream_prefix = SPEED_STREAM_PREFIX if require_speed_stream else STREAM_PREFIX
         self._factory = serial_factory
         self._lock = threading.Lock()
@@ -87,6 +89,7 @@ class ChassisLink:
         self._stream_reply_by = None
         self._stream_written = None
         self._stream_confirmed = None
+        self._stream_renewal = None
         self._pending = None          # 待发命令文本
         self._send_by = None
         self._pulse_ms = 0
@@ -329,6 +332,7 @@ class ChassisLink:
 
     def _queue_stop(self, now, command="STOP"):
         # Caller holds _lock.
+        self._stream_renewal = None
         self._pending = command
         self._send_by = None
         self._pulse_ms = 0
@@ -339,7 +343,10 @@ class ChassisLink:
         self._hold_restart_at = None
 
     def close(self):
-        self._stop_event.set()
+        with self._lock:
+            self._stop_event.set()
+            self._ready = False
+            self._pending = self._stream_renewal = None
         if self._thread:
             self._thread.join(timeout=3)
         with self._lock:
@@ -410,6 +417,7 @@ class ChassisLink:
                 self._manual_active = False
                 self._stream_reply_by = None
                 self._stream_written = self._stream_confirmed = None
+                self._stream_renewal = None
                 device = self._device
                 self._device = None
             if device is not None:
@@ -452,27 +460,41 @@ class ChassisLink:
             raise ChassisError("设备超过 2.5 s 无应答，已放弃控制")
         # 取出、校验时效和写出必须与 stop() 串行，防止覆盖新入队的 STOP。
         with self._lock:
-            pending = self._pending
+            if self._stop_event.is_set():
+                return
             now = self.clock()
             if (self._stream_reply_by is not None and now >= self._stream_reply_by
                     and not self._stream_pipeline):
                 raise ChassisError("未在连续驱动租期内收到应答，已放弃控制")
+            if self._pending is None and self._stream_renewal is not None:
+                command, send_by, renew_at, stop_at = self._stream_renewal
+                if send_by - now >= STREAM_MIN_MS / 1000:
+                    if now >= renew_at:
+                        self._pending, self._send_by = command, send_by
+                elif now >= stop_at:
+                    self._queue_stop(now)
+            pending = self._pending
             if pending is not None:
                 if pending.startswith(self._stream_prefix):
                     if self._stream_reply_by is not None and not self._stream_pipeline:
                         return  # One unacknowledged target at most. Replace waiting targets in stream().
                     self._pending = None
                     lease_ms = min(STREAM_MAX_MS, int(1000 * (self._send_by - now)))
-                    if lease_ms < STREAM_MIN_MS:
-                        if self._running:
-                            self._queue_stop(now)
+                    if lease_ms >= STREAM_MIN_MS:
+                        self._write_line(self._device, f"{pending} {lease_ms}")
+                        self._running = True
+                        self._stream_written = tuple(map(int, pending.split()[1:]))
+                        self._stream_reply_by = now + lease_ms / 1000
+                        if self._renew_stream:
+                            # Renew the exact target only within its original deadline.
+                            self._stream_renewal = (pending, self._send_by, now + STREAM_RENEW_INTERVAL_S,
+                                                    self._stream_reply_by - STREAM_SEND_MARGIN_S)
+                        self._last_heartbeat = now
                         return
-                    self._write_line(self._device, f"{pending} {lease_ms}")
-                    self._running = True
-                    self._stream_written = tuple(map(int, pending.split()[1:]))
-                    self._stream_reply_by = now + lease_ms / 1000
-                    self._last_heartbeat = now
-                    return
+                    if not self._running:
+                        return
+                    self._queue_stop(now)
+                    pending = self._pending
                 self._pending = None
                 if self._send_by is not None and now >= self._send_by:
                     if self._manual_active:
@@ -612,6 +634,7 @@ class ChassisLink:
                     self._stop_command = None
                     self._stream_reply_by = None
                     self._stream_written = self._stream_confirmed = None
+                self._stream_renewal = None
                 self._hold_restart_at = (now + HOLD_RELEASE_GUARD_S
                                          if released and self._pending != "STOP" else None)
                 if ((self._holding or self._manual_active) and self._pending is not None

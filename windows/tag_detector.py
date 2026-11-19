@@ -16,6 +16,29 @@ import numpy as np
 
 # 车顶 ArUco 码的编号（DICT_4X4_50）。换码只改这一处，其余脚本的默认值都取它。
 TAG_ID = 7
+TAG_OVERLAY_COLOR = (255, 55, 245)
+
+
+def draw_tag_heading(canvas: np.ndarray, corners: np.ndarray, label: str) -> None:
+    """Draw the decoded tag and a forward arrow in image coordinates."""
+    quad = np.asarray(corners, dtype=np.float32).reshape(4, 2)
+    center = quad.mean(axis=0)
+    heading = quad[0] - quad[3]  # Same decoded forward direction as pose_tag.
+    length = float(np.linalg.norm(heading))
+    if length <= 0:
+        return
+    tip = center + max(36., 1.65 * length) * heading / length
+    start_px = tuple(np.rint(center).astype(int))
+    tip_px = tuple(np.rint(tip).astype(int))
+    outline = [np.rint(quad).astype(np.int32)]
+    font = cv2.FONT_HERSHEY_SIMPLEX
+    label_width = cv2.getTextSize(label, font, .60, 2)[0][0]
+    origin = (max(4, min(int(quad[:, 0].min()), canvas.shape[1] - label_width - 4)),
+              max(24, int(quad[:, 1].min()) - 8))
+    for color, stroke in (((12, 12, 12), 8), (TAG_OVERLAY_COLOR, 4)):
+        cv2.polylines(canvas, outline, True, color, stroke, cv2.LINE_AA)
+        cv2.arrowedLine(canvas, start_px, tip_px, color, stroke, cv2.LINE_AA, tipLength=.25)
+        cv2.putText(canvas, label, origin, font, .60, color, stroke // 2, cv2.LINE_AA)
 
 
 @dataclass

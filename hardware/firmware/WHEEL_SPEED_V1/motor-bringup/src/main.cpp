@@ -622,6 +622,7 @@ void serviceControl(uint32_t nowUs) {
   const float vmax = calibrationData.vmax;
   const float maxStep = (closedGains.amax / 100.0f) * vmax * dt;
   wheel_speed::Fault fault = wheel_speed::Fault::None;
+  int faultChannel = -1;
   for (int i = 0; i < 4; ++i) {
     // 计数快照始终为原始值；标定符号只作用于速度增量。
     const int32_t delta =
@@ -647,16 +648,22 @@ void serviceControl(uint32_t nowUs) {
     // 判据用本周期实际占空比；任一路非 None 就整体停车闭锁，故障原因取第一路。
     const wheel_speed::Fault wheelFault = faultMonitor[i].update(
         rampedTarget[i], measuredSpeed[i], appliedDuty[i], vmax, dt);
-    if (wheelFault != wheel_speed::Fault::None && fault == wheel_speed::Fault::None)
+    if (wheelFault != wheel_speed::Fault::None && fault == wheel_speed::Fault::None) {
       fault = wheelFault;
+      faultChannel = i;
+    }
   }
   lastControlUs = nowUs;
-  if (fault != wheel_speed::Fault::None) {
+  if (faultChannel >= 0) {
     lastFaultReason = wheel_speed::faultName(fault);
+    const long target = lroundf(rampedTarget[faultChannel]);
+    const long measured = lroundf(measuredSpeed[faultChannel]);
+    const long duty = lroundf(appliedDuty[faultChannel]);
     faultLatched = true;
     stopMotor(millis());  // 清 STBY、8 路 PWM 与闭环状态（含故障计时器）。
     closedLoopActive = false;
-    reply.printf("FAULT %s\r\n", lastFaultReason);
+    reply.printf("FAULT %s WHEEL=%c TARGET=%ld MEASURED=%ld PWM=%ld\r\n",
+                 lastFaultReason, 'A' + faultChannel, target, measured, duty);
   }
 }
 

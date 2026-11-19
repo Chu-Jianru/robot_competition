@@ -30,7 +30,7 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from field_view import FieldCalibration, calibrate_image, draw_overlay, save_preview  # noqa: E402
 from pose_tag import detect as detect_tag                 # noqa: E402
-from tag_detector import TAG_ID                           # noqa: E402
+from tag_detector import TAG_ID, draw_tag_heading         # noqa: E402
 from usb_camera import UsbCamera                          # noqa: E402
 
 ROTATIONS = {90: cv2.ROTATE_90_CLOCKWISE, 180: cv2.ROTATE_180,
@@ -82,13 +82,7 @@ def draw_pose(view: np.ndarray, pose, mm_per_px: float) -> np.ndarray:
         cv2.putText(canvas, "TAG: not found", (12, 30), cv2.FONT_HERSHEY_SIMPLEX,
                     0.7, (0, 0, 255), 2)
         return canvas
-    quad = pose.corners_px.astype(np.int32).reshape(-1, 1, 2)
-    cv2.polylines(canvas, [quad], True, (0, 255, 0), 2)
-    cx, cy = int(pose.center_px[0]), int(pose.center_px[1])
-    cv2.circle(canvas, (cx, cy), 4, (0, 0, 255), -1)
-    dx = int(40 * np.cos(np.radians(pose.heading_deg)))
-    dy = int(-40 * np.sin(np.radians(pose.heading_deg)))
-    cv2.arrowedLine(canvas, (cx, cy), (cx + dx, cy + dy), (0, 200, 255), 2, tipLength=0.3)
+    draw_tag_heading(canvas, pose.corners_px, f"ID {pose.tag_id}")
     text = (f"x={pose.x_mm:6.1f} y={pose.y_mm:6.1f} h={pose.heading_deg:5.1f} "
             f"side={pose.side_mm:4.1f}mm")
     cv2.putText(canvas, text, (12, 26), cv2.FONT_HERSHEY_SIMPLEX, 0.55, (0, 255, 0), 2)

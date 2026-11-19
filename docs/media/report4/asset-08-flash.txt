@@ -1,0 +1,38 @@
+第四次汇报 · 烧录与回读证据（供截图使用）
+
+一、烧录（log/encoder_stream_pwm80_20261117/flash.txt）
+------------------------------------------
+Verified firmware SHA256: cf038a2e06e38a1b66747d0932e5b75c04f33e2232723306d34d037ffa211be2
+Verified COM3 board MAC: 2c:bc:bb:9f:96:2c
+Verified app partition app0: 0x10000-0x150000; write below 0x128000
+Hash of data verified.
+
+二、静止回读（log/encoder_stream_pwm80_20261117/readback.txt）
+------------------------------------------
+UNIFIED_ROBOT 1 mode=DRY_RUN
+CAPS MOTORS=ABCD PINS=FOUR_V2
+FIRMWARE VERSION=V3
+CHASSIS_HOLD LEASE_MS=250
+CHASSIS_HOLD_RELEASE GUARD_MS=60
+CHASSIS_MANUAL LEASE_MS=250
+CHASSIS_SPEED_STREAM LEASE_MS=150
+CHASSIS_SPEED_PWM_MAX=80
+CHASSIS_CAPS2 API=WHEEL_SPEED_V1 CLOSED=1 CAL=1 TELEM=1 PID=MILLI
+LINK_CAPS USB=1 BT=SPP OWNER=EXCLUSIVE NAME=PushRobot-ESP32
+CAL VALID=1 VMAX=9036.0 LIMIT=100
+CALW A SIGN=1  V100=9720.0 DEADBAND=14.4 SLOPE=0.0088
+CALW B SIGN=1  V100=9084.0 DEADBAND=26.3 SLOPE=0.0081
+CALW C SIGN=-1 V100=9420.0 DEADBAND=23.1 SLOPE=0.0082
+CALW D SIGN=-1 V100=9256.0 DEADBAND=19.4 SLOPE=0.0087
+SPEED_INFO 7228 1 1 -1 -1
+ENC_SNAPSHOT 0 0 0 0
+MODE_OK DRY_RUN STOPPED
+IO mode=DRY_RUN standby=0 A=0,0 B=0,0 C=0,0 D=0,0
+
+三、截图建议
+------------------------------------------
+1. 用等宽字体（Consolas / Cascadia Mono），字号 14–16，深底浅字或浅底深字均可。
+2. 只截上面两段，不要带无关窗口；宽度控制在 1200 px 左右。
+3. 若只放一张，优先截"一、烧录"的 4 行 —— 它同时给出哈希、板号、分区与校验结论。
+4. 若被问"编码器符号到底是什么"，这份回读就是答案：CALW 四行给出每路符号
+   （A=+1、B=+1、C=-1、D=-1），SPEED_INFO 7228 后面的 1 1 -1 -1 同源。

@@ -1368,7 +1368,8 @@ int main() {
   assert(singleTicks >= 75 && singleTicks <= 130);
   stoppedAndClear();
   assertAllPwmZero();
-  assert(Serial.output.find("FAULT no_feedback") != std::string::npos);
+  assert(Serial.output.find("FAULT no_feedback WHEEL=B TARGET=2000 MEASURED=0 PWM=100") !=
+         std::string::npos);
   command("STOP", fakeNow);
 
   // 15c. Negative target: B measures positive (reverse sign) -> encoder_sign.

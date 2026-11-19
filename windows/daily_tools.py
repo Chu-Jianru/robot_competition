@@ -7,6 +7,8 @@ import subprocess
 import sys
 import time
 
+from detection_flags import obstacles_enabled, set_obstacles
+
 
 ROOT = Path(__file__).resolve().parent.parent
 SCRCPY = Path(r'E:\scrcpy\scrcpy-win64-v5.0.1')
@@ -24,6 +26,7 @@ ACTIONS = {
     '11': ('task-config', '用相机和四轮编码器自动标定（车会动）'),
     '12': ('task-preview', '预览自主清扫策略（不接底盘）'),
     '13': ('keyboard', '键盘遥控小车'),
+    '14': ('obstacles', '切换障碍（对方车体）检测开关'),
 }
 
 
@@ -97,7 +100,8 @@ def command(action, *, batch='no_robot'):
     if action == 'panel':
         return [python, str(ROOT/'hardware/firmware/WHEEL_SPEED_V1/motor-bringup/wheel_calibration_panel.py')]
     if action == 'keyboard':
-        return [python, '-u', str(ROOT/'windows/keyboard_drive.py')]
+        return [python, '-u', str(ROOT/'windows/keyboard_drive.py'), '--camera',
+                '--scrcpy-dir', str(SCRCPY), '--rotate', '90']
     if action == 'results':
         folder = ('field_no_robot_20261103/optimized_v2' if batch == 'no_robot'
                   else 'field_photos_20261103/regression_v2')
@@ -106,6 +110,16 @@ def command(action, *, batch='no_robot'):
 
 
 def launch(action, *, batch=None, dry_run=False):
+    if action == 'obstacles':
+        enabled = not obstacles_enabled()
+        if dry_run:
+            print(json.dumps({'action': 'obstacles', 'obstacles': enabled}, ensure_ascii=False))
+            return 0
+        set_obstacles(enabled)
+        state = '已打开' if enabled else '已关闭'
+        print(menu_text(f'障碍（对方车体）检测{state}，下次启动菜单 10/11/12/13 时生效。',
+                        32 if enabled else 33))
+        return 0
     if dry_run:
         print(json.dumps(command(action, batch=batch or 'no_robot'), ensure_ascii=False))
         return 0
@@ -122,8 +136,8 @@ def launch(action, *, batch=None, dry_run=False):
         if serial is None or not camera_available(serial):
             return 1
     if action == 'task':
-        print('给底盘上电并关闭调试面板。把车放在己方半区靠外侧，车头朝中线。')
-        print('任务窗口显示 SPACE to start 时按空格。Q 或 Esc 停车退出。')
+        print('给底盘上电并关闭调试面板。车可以从场内任意位置、任意朝向起步。')
+        print('任务窗口按 B 选蓝方、Y 选黄方，显示 SPACE start 时按空格。Q 或 Esc 停车退出。')
     if action in ('results', 'label') and batch is None:
         batch = choose_batch()
         if batch is None:
@@ -146,6 +160,16 @@ def launch(action, *, batch=None, dry_run=False):
             print('无车 01 缺真实地面角，不猜四角。')
     if action == 'panel':
         print('将打开轮速标定窗口。选择连接后，确认四轮架空才可开始标定。')
+    if action == 'keyboard':
+        print('\n1  轮速闭环（默认）\n2  直接 PWM（最高 100% 占空比）\n0  返回')
+        mode = input('选择遥控模式：').strip()
+        if mode not in ('', '1', '2'):
+            return 130
+        if mode == '2':
+            args.append('--pwm')
+        print('遥控窗口接受按键；旁边会另开检测窗口，显示场地分界、tag 和红块（障碍按菜单 14 的开关）。')
+        print('检测需要手机 USB 和场地标定，不可用时窗口不出现，遥控仍可单独使用。')
+        print('在检测窗口上点一下会把键盘焦点还给遥控窗口；关闭它只停检测。')
     sys.stdout.flush()
     status = subprocess.run(args, cwd=ROOT).returncode
     if status not in (0, 130):
@@ -162,7 +186,7 @@ def run_menu_action(choice, *, batch=None):
     except Exception as error:
         print(menu_text(f'操作出错：{error}', 31))
         return 1
-    if status == 0 and action not in ('usb', 'results'):
+    if status == 0 and action not in ('usb', 'results', 'obstacles'):
         print(menu_text('已结束。', 32))
     elif status == 130:
         print('已取消。')
@@ -171,7 +195,8 @@ def run_menu_action(choice, *, batch=None):
 
 def show_menu():
     print('\n清扫机器人 · 日常工具')
-    print(f"场地标定 {'已有' if CALIB.is_file() else '待完成'}，编码器运动标定 {'已有' if has_encoder_calibration() else '待完成'}")
+    print(f"场地标定 {'已有' if CALIB.is_file() else '待完成'}，编码器运动标定 {'已有' if has_encoder_calibration() else '待完成'}，"
+          f"障碍检测 {'已打开' if obstacles_enabled() else '已关闭'}")
     for number, (_, title) in ACTIONS.items():
         print(f'{number}  {title}')
     print('0  退出')
@@ -217,11 +242,74 @@ def check_phone(*, report_success=False):
     return None
 
 
+def scrcpy_channels(serial):
+    """Return (forward lines, reverse lines) that name a scrcpy socket."""
+    forwards = [line for line in adb_output('forward', '--list').splitlines()
+                if line.split()[:1] == [serial] and 'localabstract:scrcpy' in line]
+    reverses = [line for line in adb_output('-s', serial, 'reverse', '--list').splitlines()
+                if 'localabstract:scrcpy' in line]
+    return forwards, reverses
+
+
+def scrcpy_server_running(serial):
+    """True/False from the device process list; None when ps cannot answer."""
+    for args in (('ps', '-A'), ('ps',)):
+        try:
+            output = adb_output('-s', serial, 'shell', *args)
+        except RuntimeError:
+            continue
+        if len(output.splitlines()) < 2:
+            continue
+        return 'com.genymobile.scrcpy.Server' in output
+    return None
+
+
+def port_in_use(port):
+    """True/False when netstat answers, None when it cannot be read."""
+    try:
+        output = subprocess.check_output(
+            ['netstat', '-ano'], encoding='utf-8', errors='replace',
+            stderr=subprocess.PIPE, timeout=10,
+        )
+    except (OSError, subprocess.SubprocessError):
+        return None
+    for row in output.splitlines():
+        parts = row.split()
+        if len(parts) >= 4 and parts[3] == 'ESTABLISHED' and parts[1].endswith(f':{port}'):
+            return True
+    return False
+
+
+def channel_is_stale(serial, line):
+    """A forward with no device-side server and no connected client is a leftover.
+
+    Both answers must be positive facts; an unreadable process list or netstat
+    keeps the old blocking behaviour.
+    """
+    parts = line.split()
+    if len(parts) < 3 or not parts[1].startswith('tcp:'):
+        return False
+    if scrcpy_server_running(serial) is not False:
+        return False
+    return port_in_use(int(parts[1][4:])) is False
+
+
+def clear_stale_channels(serial, forwards):
+    for line in forwards:
+        try:
+            adb_output('-s', serial, 'forward', '--remove', line.split()[1])
+        except RuntimeError:
+            return False
+    return True
+
+
 def camera_available(serial):
-    forwards = adb_output('forward', '--list').splitlines()
-    reverses = adb_output('-s', serial, 'reverse', '--list').splitlines()
-    active = [line for line in forwards if line.split()[:1] == [serial]] + reverses
-    if any('localabstract:scrcpy' in line for line in active):
+    forwards, reverses = scrcpy_channels(serial)
+    stale = [line for line in forwards if channel_is_stale(serial, line)]
+    if stale and clear_stale_channels(serial, stale):
+        print(menu_text('已清理上次取图留下的 scrcpy 通道。', 33))
+        forwards = [line for line in forwards if line not in stale]
+    if forwards or reverses:
         print(menu_text('手机已有 scrcpy 通道。请退出正在取图的窗口，再重试。', 31))
         return False
     return True

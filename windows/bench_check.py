@@ -24,7 +24,7 @@ import numpy as np
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
 from red_blocks import detect_red_blocks, filter_by_size_mm, load_red_config   # noqa: E402
-from tag_detector import TAG_ID, detect_markers  # noqa: E402
+from tag_detector import TAG_ID, detect_markers, draw_tag_heading  # noqa: E402
 
 IMAGE_SUFFIXES = (".png", ".jpg", ".jpeg", ".bmp")
 DEFAULT_PROFILE = Path(__file__).resolve().with_name("red_block_profile.json")
@@ -47,11 +47,6 @@ def find_tag(image: np.ndarray, tag_id: int | None = TAG_ID):
 def annotate(image: np.ndarray, tag_pts, tag_id, side_px, scale, blocks, tag_center,
              rejected=None):
     canvas = image.copy()
-    if tag_pts is not None:
-        cv2.polylines(canvas, [tag_pts.astype(np.int32).reshape(-1, 1, 2)], True, (0, 255, 0), 2)
-        cv2.putText(canvas, f"id={tag_id} side={side_px:.1f}px = {side_px * scale:.1f}mm",
-                    (int(tag_pts[:, 0].min()), max(20, int(tag_pts[:, 1].min()) - 8)),
-                    cv2.FONT_HERSHEY_SIMPLEX, 0.6, (0, 255, 0), 2)
     for index, block in enumerate(blocks):
         x, y, w, h = block["bbox_px"]
         cv2.rectangle(canvas, (x, y), (x + w, y + h), (0, 255, 255), 2)
@@ -69,6 +64,8 @@ def annotate(image: np.ndarray, tag_pts, tag_id, side_px, scale, blocks, tag_cen
         cv2.rectangle(canvas, (x, y), (x + w, y + h), (140, 140, 140), 1)
         cv2.putText(canvas, f"x{block['side_mm']:.0f} {reason[:5]}", (x, max(12, y - 3)),
                     cv2.FONT_HERSHEY_SIMPLEX, 0.4, (140, 140, 140), 1)
+    if tag_pts is not None:
+        draw_tag_heading(canvas, tag_pts, f"ID {tag_id} | {side_px:.1f}px = {side_px * scale:.1f}mm")
     return canvas
 
 

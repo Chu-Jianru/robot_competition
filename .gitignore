@@ -34,8 +34,8 @@ training/*.zip
 windows/field_calib.json
 /windows/field_calib_preview.png
 windows/task_drive.json
-windows/captures_hi/live_*/
-windows/captures_hi/diag_*/
+/windows/captures_hi/
+/windows/detection_flags.json
 windows/test_data/**/*.cache
 *.tmp
 

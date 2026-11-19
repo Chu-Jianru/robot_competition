@@ -558,7 +558,7 @@ class CompetitionPolicy:
             self.abort(now,'横穿空档等待超时，重新选择车道')
         return True
 
-    def safe(self, cmd, now, escape_push=False):
+    def safe(self, cmd, now, escape_push=False, *, check_obstacles=True):
         if self.pose is None: return False
         x, y, yaw = self.pose
         vx, vy, wz = cmd
@@ -568,6 +568,7 @@ class CompetitionPolicy:
         pushing = push_mode and vx > 1e-5 and abs(vy) <= max(0.003, 0.4 * vx) and abs(wz) < 0.25
         dumping=vx<-.05 and abs(vy)<=.4*abs(vx) and abs(wz)<.25
         horizon = max(0.16, math.hypot(vx, vy) / 1.3 + 0.10)
+        obstacles = self.forecast_obstacles() if check_obstacles else ()
         for t in (0.05, horizon / 2, horizon):
             c, s = math.cos(yaw), math.sin(yaw)
             px, py = x + (c * vx - s * vy) * t, y + (s * vx + c * vy) * t
@@ -597,7 +598,7 @@ class CompetitionPolicy:
                 if new_gap < 0.003 and new_gap <= old_gap + 1e-5 * t and not parallel_exit:
                     return False
                 if abs(wz) > 0.12 and math.hypot(dx, dy) < 0.125 + max(o.hx, o.hy): return False
-            for o in self.forecast_obstacles():
+            for o in obstacles:
                 old_gap = gap((x, y), o, 0.10, 0.105)
                 new_gap = gap((px, py), o, 0.10, 0.105)
                 if new_gap < 0.005 and new_gap <= old_gap + 1e-5 * t: return False

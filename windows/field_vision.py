@@ -45,6 +45,55 @@ def find_seam(blue, yellow):
     return seam if abs(seam - height / 2) <= height * .025 else None
 
 
+def rectified_floor_border(hsv, blue, yellow):
+    """Find supported inner wall edges near the calibrated square."""
+    floor = cv2.bitwise_or(blue, yellow)
+    size = floor.shape[0]
+    samples = np.rint(np.linspace(.10, .90, 40) * (size - 1)).astype(int)
+    depth = round(size / 12)  # Look within 100 mm of each calibrated edge.
+    kernel = np.ones((1, 7), np.uint8)
+
+    def edge(strips, colours):
+        # Use the first sustained run of floor colour. Cars, blocks and glare
+        # may hide the edge on individual scan lines. A wall may have the
+        # right hue too, but usually has less chroma than the adjacent floor.
+        chroma = colours[:, :, 1].astype(np.uint16) * colours[:, :, 2]
+        floor_chroma = np.median(np.where(strips[:, depth:] != 0, chroma[:, depth:], 0), axis=1)
+        coloured_floor = (strips[:, :depth] != 0) & (chroma[:, :depth] >= .62 * floor_chroma[:, None])
+        runs = cv2.erode(coloured_floor.astype(np.uint8), kernel, anchor=(0, 0),
+                         borderType=cv2.BORDER_CONSTANT, borderValue=0)
+        seen = (floor_chroma > 0) & runs.any(axis=1)
+        if np.count_nonzero(seen) < 24:
+            return 0., 0.
+        along = samples[seen]
+        inside = runs[seen].argmax(axis=1)
+        dx, dy, x, y = cv2.fitLine(np.float32(np.column_stack((along, inside))),
+                                  cv2.DIST_WELSCH, 0, .01, .01).ravel()
+        if abs(dy) > .12 * abs(dx):
+            return 0., 0.
+        slope = float(dy / dx)
+        offset = float(y - slope * x)
+        supporting = along[np.abs(inside - (slope * along + offset)) <= 5]
+        if len(supporting) < 24 or np.ptp(supporting) < .60 * size:
+            return 0., 0.
+        return slope, offset
+
+    width = 2 * depth
+    left = edge(floor[samples, :width], hsv[samples, :width])
+    top = edge(floor[:width, samples].T, hsv[:width, samples].transpose(1, 0, 2))
+    slope, offset = edge(floor[samples, -width:][:, ::-1], hsv[samples, -width:][:, ::-1])
+    right = (-slope, size - 1 - offset)
+    slope, offset = edge(floor[-width:, samples][::-1, :].T,
+                         hsv[-width:, samples][::-1, :].transpose(1, 0, 2))
+    bottom = (-slope, size - 1 - offset)
+
+    corners = []
+    for (ax, bx), (ay, by) in ((left, top), (right, top), (right, bottom), (left, bottom)):
+        y = (ay * bx + by) / (1 - ax * ay)
+        corners.append((ax * y + bx, y))
+    return np.float32(corners)
+
+
 def _mask(hsv: np.ndarray, low: Sequence[int], high: Sequence[int]) -> np.ndarray:
     return cv2.inRange(hsv, np.array(low, np.uint8), np.array(high, np.uint8))
 
@@ -157,6 +206,7 @@ def _blobs(
     max_side: float,
     min_area_px: float = 4.0,
     long_only: bool = False,
+    required_pixels: Optional[np.ndarray] = None,
 ) -> List[dict]:
     contours, _ = cv2.findContours(mask, cv2.RETR_EXTERNAL, cv2.CHAIN_APPROX_SIMPLE)
     found = []
@@ -178,6 +228,15 @@ def _blobs(
                 continue
         elif short < min_side or long > max_side:
             continue
+        if required_pixels is not None:
+            x, y, width, height = cv2.boundingRect(contour)
+            core = required_pixels[y:y + height, x:x + width]
+            if not core.any():
+                continue
+            region = np.zeros(core.shape, np.uint8)
+            cv2.drawContours(region, [contour], 0, 255, cv2.FILLED, offset=(-x, -y))
+            if not cv2.countNonZero(cv2.bitwise_and(region, core)):
+                continue
         center = image_to_world(homography, [(px, py)])[0]
         if abs(float(center[0])) > FIELD_HALF + 0.02 or abs(float(center[1])) > FIELD_HALF + 0.05:
             continue
@@ -476,7 +535,8 @@ def _remove_specular_glare(hsv, unknown):
 
 def _obstacles(hsv, homography, field_src, bias: float, robot_xy, *,
                robot_outline_px=None, robot_outline_pad_px=0,
-               floor_seam_px=None) -> Tuple[List[Point], List[Point]]:
+               floor_seam_px=None, own_evidence_region=None,
+               block_contours=()) -> Tuple[List[Point], List[Point]]:
     """场地里比物块大、又不是红块和己方色标的物体。车自己身上的绿色和灰铲不算。"""
     height, width = hsv.shape[:2]
     inside = np.zeros((height, width), np.uint8)
@@ -485,6 +545,8 @@ def _obstacles(hsv, homography, field_src, bias: float, robot_xy, *,
     for name in ("yellow", "red_lo", "red_hi", "magenta", "cyan"):
         known = cv2.bitwise_or(known, _mask(hsv, *HSV[name]))
     other = cv2.bitwise_and(inside, cv2.bitwise_not(known))
+    for contour in block_contours:
+        cv2.fillPoly(other, [np.rint(contour).astype(np.int32)], 0)
     if robot_outline_px is not None:
         outline = np.rint(robot_outline_px).astype(np.int32)
         cv2.fillPoly(other, [outline], 0)
@@ -500,12 +562,27 @@ def _obstacles(hsv, homography, field_src, bias: float, robot_xy, *,
         cv2.fillConvexPoly(other, polygon, 0)
     kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (5, 5))
     other = cv2.morphologyEx(other, cv2.MORPH_OPEN, kernel)
+    dark_core = None
     if floor_seam_px is not None:
         other = _remove_floor_glare(hsv, other, floor_seam_px, kernel)
-    other = _remove_specular_glare(hsv, other)
+        # On the rectified field, a car has solid dark structure outside the
+        # own-car mask. Glare, even where it crosses the seam or touches a
+        # red block, rarely contains a dark patch 20 mm across.
+        diameter = 2 * round(.010 / homography[0, 0]) + 1
+        core_kernel = cv2.getStructuringElement(cv2.MORPH_ELLIPSE, (diameter, diameter))
+        dark = cv2.bitwise_and(other, cv2.inRange(hsv, (0, 0, 0), (180, 255, 144)))
+        dark_core = cv2.erode(dark, core_kernel, borderType=cv2.BORDER_CONSTANT, borderValue=0)
+        if own_evidence_region is not None:
+            # A residual wheel, chassis edge or its shadow can sit beyond the
+            # oriented mask. Require independent evidence outside the tag's
+            # reach before accepting a nearby candidate.
+            center, radius = own_evidence_region
+            cv2.circle(dark_core, center, radius, 0, cv2.FILLED)
+    else:
+        other = _remove_specular_glare(hsv, other)
     points = []
     extents = []
-    for blob in _blobs(other, homography, 0.035, 0.40, min_area_px=45.0):
+    for blob in _blobs(other, homography, 0.035, 0.40, min_area_px=45.0, required_pixels=dark_core):
         x, y = blob["xy"]
         y -= bias
         points.append((x, y))

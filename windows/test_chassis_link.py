@@ -156,7 +156,27 @@ class StreamTest(unittest.TestCase):
         self.now = 1.30
         link._handle_line("STREAM_OK", self.now)  # A late ack must not abort.
 
+    def test_background_stream_preserves_lease_during_planner_pause(self):
+        self.link._stream_pipeline = self.link._renew_stream = True
+        self.assertTrue(self.link.stream(20, 2, -4, valid_until=1.30))
+        self.link._service(self.now)
+        self.now = 1.06
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-2:], ["MECANUM_STREAM 20 2 -4 150"] * 2)
+        self.now = 1.12
+        self.link._service(self.now)
+        lease_ms = int(self.peer.sent[-1].split()[-1])
+        self.assertIn(lease_ms, (139, 140))
+        self.now = 1.23
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "STOP")
+        self.link._handle_line("STOPPED command", self.now)
+        self.now = 1.32
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "STOP")
+
     def test_lease_shortens_and_stop_cancels_a_queued_renewal(self):
+        self.link._renew_stream = True
         self.assertTrue(self.link.stream(20, 0, 0, valid_until=1.20))
         self.now = 1.05
         self.link._service(self.now)
@@ -168,6 +188,9 @@ class StreamTest(unittest.TestCase):
         self.assertFalse(self.link.stream(20, 0, 0, valid_until=1.30))
         self.link._handle_line("STOPPED command", self.now)
         self.assertEqual(self.link.stream_outputs, ())
+        self.now = 1.12
+        self.link._service(self.now)
+        self.assertEqual(self.peer.sent[-1], "STOP")
         self.assertTrue(self.link.stream(20, 0, 0, valid_until=1.30))
 
     def test_stale_queued_target_is_discarded_and_missing_ack_aborts(self):

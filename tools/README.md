@@ -1,8 +1,8 @@
 # 工具与本地环境
 
-这里是**不进入交付包、也不属于 vendor** 的本地工具目录：解释器、编译产物、启动入口、排查记录。全部可删可重建。
+本目录保存入库的启动脚本与依赖清单，以及仅在本机的解释器、面板数据和 PlatformIO 构建环境。面板配置与运行记录保存在 `panel-data/`。
 
-双击 [日常工具.cmd](日常工具.cmd) 打开中文数字菜单。选 **8** 检查手机 USB，取图和任务也会检查 USB 授权与 scrcpy 通道占用。打开菜单本身不连接设备。菜单逻辑位于 `windows/daily_tools.py`，编号和命令见 [常用命令](../docs/常用命令.md)。
+双击 [日常工具.cmd](日常工具.cmd) 打开中文数字菜单。选 **8** 检查手机 USB，取图和任务也会检查 USB 授权与 scrcpy 通道占用；上次取图异常退出留下的空转发（手机上已无 scrcpy server、端口也没有连接）会被自动清掉并提示。打开菜单本身不连接设备。菜单逻辑位于 `windows/daily_tools.py`，编号和命令见 [常用命令](../docs/常用命令.md)。
 
 ## 目录
 
@@ -38,7 +38,7 @@ python -m venv tools\panel-venv
 tools\panel-venv\Scripts\python.exe -m pip install -r tools\panel-requirements.txt --index-url https://pypi.org/simple
 ```
 
-**必须用官方源**：清华镜像没有 `Pillow>=12`，用默认源会报 `Could not find a version that satisfies the requirement Pillow<14,>=12`。
+上述安装命令使用官方 PyPI。历史镜像曾缺少指定 Pillow 版本，遇依赖解析失败时核对索引与锁定版本。
 
 ## 编译与烧录固件
 
@@ -49,7 +49,7 @@ $env:PLATFORMIO_LIBDEPS_DIR = "$PWD\tools\pio-libdeps"
 tools\pio-venv\Scripts\pio.exe run -d hardware\firmware\WHEEL_SPEED_V1\motor-bringup
 ```
 
-产物固定在 `tools\pio-build\esp32dev\firmware.bin`，2026-11-02 的镜像 SHA256 为 `EB4978344A49CDBD56BBFC43CF4857188047CD58E0FF3410E82565CE77BF802C`。
+产物位于 `tools\pio-build\esp32dev\firmware.bin`。最近一次烧录使用的具体构建目录、哈希与回读见 [交接说明](../交接说明.md)，烧录前核对本次构建产物。
 
 烧录（USB，端口通常是 COM3）：
 
@@ -76,4 +76,3 @@ tools\pio-venv\Scripts\python.exe tools\pio-core\packages\tool-esptoolpy\esptool
 | 设置里显示“已配对”但面板超时 | 先核对是否选了蓝牙传入端口；不能仅凭地址 `…962C` / `…962E` 不同认定是另一块板 | ESP32 默认四地址配置中，蓝牙地址是基础 MAC +2；本次 `…962E` 的传出 COM6 已握手成功，无须因此删配对 |
 | 面板下拉框里一堆 COM | 2026-11-03 本次配对为 COM6 传出、COM7 传入；重新配对可能重新编号 | 选“更多蓝牙设置 → COM 端口”中对应设备的传出端口；USB 另看 CP210x 描述 |
 | `.cmd` 一运行就报奇怪命令 | 用 UTF-8 存了中文注释，cmd 按 GBK 解码 | 启动脚本一律纯 ASCII + CRLF |
-| 往 `hardware/` 写文件被拒 | 本机 DACL 没有把沙箱权限继承到子目录 | 用编辑工具写，或按提示提升访问权限 |

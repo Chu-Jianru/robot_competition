@@ -328,7 +328,8 @@ class ChassisLinkTests(unittest.TestCase):
     def test_telemetry_fault_and_closed_loop_events(self):
         client = self.offline()
         client.handle_response("TLM 1000 4000 4100 4200 4300 3999 4099 4199 4299 60 61 62 63")
-        client.handle_response("FAULT encoder_sign")
+        fault = "encoder_sign WHEEL=B TARGET=2000 MEASURED=-500 PWM=100"
+        client.handle_response(f"FAULT {fault}")
         client.handle_response("FAULT last=encoder_sign")  # STATUS echo is not a second event
         client.handle_response("CAL START")
         self.assertFalse(client.cal_valid)  # a calibration run invalidates the old result
@@ -342,7 +343,7 @@ class ChassisLinkTests(unittest.TestCase):
         self.assertEqual(telemetry, [
             (1000, 4000, 4100, 4200, 4300, 3999, 4099, 4199, 4299, 60, 61, 62, 63)])
         self.assertEqual(len(telemetry[0]), 13)
-        self.assertEqual([value for kind, value in events if kind == "fault"], ["encoder_sign"])
+        self.assertEqual([value for kind, value in events if kind == "fault"], [fault])
         self.assertEqual([value for kind, value in events if kind == "cal_progress"],
                          ["start", "run 0 60", "speed 1 2500.0"])
         self.assertEqual([value for kind, value in events if kind == "cal_done"],
